@@ -1,17 +1,23 @@
 import argparse
 import sys
 import os
+import json
+import re
+import subprocess
 from dotenv import load_dotenv
 
 # Load environment variables first to disable telemetry and configure offline providers
 load_dotenv()
 
+import tools.cli_ui as ui
 from agents.sdlc_crew import SDLCCrewManager
-# Lazy/defensive imports to allow running without crewai installed (fallback mode)
+
+# Defensive imports to allow running without crewai installed (fallback mode)
 try:
     from agents.base_agent import BaseAgent
 except Exception:
     BaseAgent = None
+
 try:
     from crewai import Agent, Task, Crew, Process
     HAS_CREW = True
@@ -21,153 +27,14 @@ except Exception:
     Crew = None
     Process = None
     HAS_CREW = False
+
 from database.db_manager import DBManager
 from tools.language_tools import detect_language, load_project_language
 from tools.build_tools import compile_project, run_c_tests, generate_makefile, debug_c_project
-import json
-import re
-import subprocess
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Agentic SDLC Framework: Autonomous Software Development Lifecycle Manager"
-    )
-    
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
-    
-    # run-new parser
-    parser_new = subparsers.add_parser("run-new", help="Initialize and run a new software project")
-    parser_new.add_argument("--name", required=True, help="Name of the project")
-    parser_new.add_argument("--prompt", required=True, help="Functional requirements prompt for the new project")
-    
-    # evolve parser
-    parser_evolve = subparsers.add_parser("evolve", help="Evolve an existing software project incrementally")
-    parser_evolve.add_argument("--name", required=True, help="Name of the project")
-    parser_evolve.add_argument("--prompt", required=True, help="Incremental feature updates and modifications prompt")
-    
-    if len(sys.argv) == 1:
-        print("=== Autonomous Agentic SDLC Framework ===")
-        prompt = input("Please describe your software requirements: ").strip()
-        if not prompt:
-            print("Requirements prompt cannot be empty. Exiting.")
-            sys.exit(1)
-        
-        # Determine project_name and mode autonomously
-        print("\nAnalyzing requirements and identifying project scope...")
-        try:
-            db = DBManager()
-            with db.get_connection() as conn:
-                projects = conn.execute("SELECT name FROM projects").fetchall()
-            existing_projects = [p[0] for p in projects]
-        except Exception as e:
-            print(f"Warning: Could not connect to database to fetch existing projects: {e}")
-            existing_projects = []
-            
-        try:
-            # Instantiate BaseAgent to get the configured LLM if Crew is available.
-            if Agent is None or Task is None or Crew is None or Process is None:
-                raise RuntimeError("Crew is unavailable for autonomous classification")
-            agent_wrapper = BaseAgent("requirement_agent")
-            llm = agent_wrapper.llm
-            
-            classifier_agent = Agent(
-                role="Project Requirements Triage Agent",
-                goal="Classify user requirement prompt into project_name and mode.",
-                backstory=(
-                    "You are a detail-oriented triage coordinator. You parse user software requirements "
-                    "to determine the target project name (as a clean, lowercase snake_case slug) "
-                    "and whether this is a greenfield project ('new') or an update to an existing project ('evolve')."
-                ),
-                llm=llm,
-                verbose=False,
-                allow_delegation=False
-            )
-            
-            classifier_task = Task(
-                description=(
-                    f"Analyze the user requirement prompt: \"{prompt}\"\n\n"
-                    f"Here is the list of existing projects: {existing_projects}\n\n"
-                    "Determine:\n"
-                    "1. 'project_name': A clean lowercase snake_case identifier for the project. "
-                    "If the prompt references or seems to update/add features to one of the existing projects "
-                    "in the list, you must use that exact existing project name. Otherwise, create a new one.\n"
-                    "2. 'mode': Must be either 'evolve' (if the project matches or refers to one of the existing projects) "
-                    "or 'new' (if the project is not in the list of existing projects).\n\n"
-                    "You must output ONLY a valid JSON object. Do not include markdown code block formatting or any other text. "
-                    "Example output:\n"
-                    "{\"project_name\": \"calculator\", \"mode\": \"evolve\"}"
-                ),
-                expected_output="A JSON object containing keys 'project_name' and 'mode'.",
-                agent=classifier_agent
-            )
-            
-            crew = Crew(
-                agents=[classifier_agent],
-                tasks=[classifier_task],
-                process=Process.sequential,
-                verbose=False
-            )
-            
-            classification_raw = str(crew.kickoff()).strip()
-            
-            # Clean markdown formatting if present
-            clean_result = classification_raw
-            if "```" in clean_result:
-                match = re.search(r"```(?:json)?\s*(.*?)\s*```", clean_result, re.DOTALL)
-                if match:
-                    clean_result = match.group(1).strip()
-            
-            data = json.loads(clean_result)
-            project_name = data.get("project_name", "").strip().lower().replace(" ", "_")
-            mode = data.get("mode", "new").strip().lower()
-        except Exception as e:
-            print(f"Warning: Autonomous classification failed or timed out: {e}")
-            # Fallback heuristics
-            GENERIC_WORDS = {"build", "create", "make", "run", "test", "app", "project", "software_project", "new"}
-            project_name = "software_project"
-            mode = "new"
-            for p in existing_projects:
-                if p.lower() not in GENERIC_WORDS and re.search(r'\b' + re.escape(p.lower()) + r'\b', prompt.lower()):
-                    project_name = p
-                    mode = "evolve"
-                    break
 
-            if mode == "new":
-                nouns = [w for w in re.findall(r'\b[a-zA-Z0-9_]+\b', prompt.lower()) if w not in GENERIC_WORDS and len(w) > 2 and w not in {"simple", "in", "for", "with", "c", "cpp", "python"}]
-                if nouns:
-                    project_name = "_".join(nouns[:2])
-
-        # Enforce name formatting and mode constraints
-        if not project_name:
-            project_name = "software_project"
-        project_name = project_name.lower().replace(" ", "_")
-
-        # Override heuristic: if user explicitly mentions a specific existing project name in the prompt,
-        # override the LLM's decision to ensure we evolve that project.
-        GENERIC_WORDS = {"build", "create", "make", "run", "test", "app", "project", "software_project", "new"}
-        for p in existing_projects:
-            if p.lower() not in GENERIC_WORDS and re.search(r'\b' + re.escape(p.lower()) + r'\b', prompt.lower()):
-                project_name = p
-                mode = "evolve"
-                break
-
-        if mode == "evolve" and project_name not in existing_projects:
-            mode = "new"
-            
-        print(f"Identified project: '{project_name}' | Mode: '{mode}'")
-        
-        class InteractiveArgs:
-            def __init__(self, command, name, prompt):
-                self.command = command
-                self.name = name
-                self.prompt = prompt
-        
-        command = "run-new" if mode == "new" else "evolve"
-        args = InteractiveArgs(command, project_name, prompt)
-    else:
-        args = parser.parse_args()
-    
-    # Check for .env file and write example if missing
+def check_env_file():
+    """Ensures .env exists or creates default .env.example template."""
     if not os.path.exists(".env"):
         with open(".env.example", "w", encoding="utf-8") as f:
             f.write(
@@ -187,128 +54,334 @@ def main():
                 "OTEL_SDK_DISABLED=true\n"
                 "CREWAI_TRACING_ENABLED=false\n"
             )
-        print("Warning: .env file was missing. A template .env.example has been created.")
-        print("Please rename it to .env and configure your LLM settings before running the pipeline.")
+        ui.print_stage_warning("Env Setup", ".env file was missing. A template .env.example has been created.")
+        ui.print_stage_warning("Env Setup", "Please rename .env.example to .env and configure your LLM settings before running.")
         sys.exit(1)
-        
-    if not args.command:
-        parser.print_help()
-        sys.exit(1)
-        
-    project_name = args.name.lower().replace(" ", "_")
-    
+
+
+def autonomous_triage(prompt: str) -> tuple[str, str]:
+    """
+    Determines project_name and mode autonomously using LLM classifier or fallback heuristics.
+    """
     try:
-        manager = SDLCCrewManager(project_name=project_name)
-        if args.command == "run-new":
-            print(f"Initializing new project '{project_name}'...")
-            manager.run_pipeline(prompt=args.prompt, mode="new")
-        elif args.command == "evolve":
-            print(f"Evolving project '{project_name}' with new requirements...")
-            manager.run_pipeline(prompt=args.prompt, mode="evolve")
-            
-        # Post-pipeline validation
-        print("\n=== Stage: Automated Verification (Tests) ===")
-        project_dir = os.path.join("projects", project_name)
-        tests_passed = True
-
-        target_language = load_project_language(project_dir) or detect_language(args.prompt)
-        if target_language in {"c", "cpp"}:
-            makefile_path = os.path.join(project_dir, "Makefile")
-            if not os.path.exists(makefile_path):
-                print("No Makefile found. Generating a default C/C++ Makefile...")
-                try:
-                    generate_makefile(project_dir, project_name, target_language)
-                except Exception as e:
-                    print(f"Failed to generate Makefile: {e}")
-
-            print(f"Compiling C/C++ project in '{project_dir}'...")
-            compile_success, compile_output = compile_project(project_dir)
-            print(compile_output)
-            test_success = True
-            test_output = ""
-            if compile_success:
-                test_dir = os.path.join(project_dir, "tests")
-                if os.path.isdir(test_dir):
-                    print(f"Running C/C++ tests in '{project_dir}'...")
-                    test_success, test_output = run_c_tests(project_dir)
-                    print(test_output)
-
-            if not compile_success or not test_success:
-                print("Verification initially failed. Running automated C/C++ debugging & bug-fixing pass...")
-                dbg_ok, dbg_out = debug_c_project(project_dir)
-                print(dbg_out)
-                if dbg_ok:
-                    print("Verification successful after automated C/C++ debugging!")
-                    tests_passed = True
-                else:
-                    print("Verification failed: C/C++ debugging could not resolve all errors.")
-                    tests_passed = False
-            else:
-                print("Verification successful: All C/C++ tests passed!")
-                tests_passed = True
-        else:
-            test_dir = os.path.join(project_dir, "tests")
-            if os.path.exists(test_dir):
-                print(f"Running pytest suite in '{project_dir}'...")
-                env = os.environ.copy()
-                env["PYTHONPATH"] = project_dir
-                
-                result = subprocess.run(
-                    [sys.executable, "-m", "pytest", project_dir],
-                    env=env,
-                    capture_output=True,
-                    text=True
-                )
-                print(result.stdout)
-                if result.stderr:
-                    print(result.stderr)
-                    
-                if result.returncode == 0:
-                    print("Verification successful: All tests passed!")
-                    tests_passed = True
-                else:
-                    print("Verification failed: Some tests did not pass.")
-                    tests_passed = False
-            else:
-                print("No test suite found. Skipping verification.")
-
-        # Post-pipeline deployment
-        if tests_passed:
-            print("\n=== Stage: Automated Deployment (Git Push) ===")
-            try:
-                # Stage files
-                add_paths = [
-                    os.path.join("projects", project_name),
-                    os.path.join("reports", project_name)
-                ]
-                existing_add_paths = [p for p in add_paths if os.path.exists(p)]
-                if existing_add_paths:
-                    print(f"Staging changes for: {existing_add_paths}")
-                    subprocess.run(["git", "add"] + existing_add_paths, check=True)
-                    
-                    status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-                    if status_result.stdout.strip():
-                        commit_msg = f"auto(sdlc): update {project_name} autonomously"
-                        print(f"Committing changes: '{commit_msg}'")
-                        subprocess.run(["git", "commit", "-m", commit_msg], check=True)
-                        
-                        print("Pushing changes to remote Git repository...")
-                        subprocess.run(["git", "push"], check=True)
-                        print("Deployment successful: Code pushed to remote Git repository.")
-                    else:
-                        print("No changes to commit. Skipping Git push.")
-                else:
-                    print("No project files found to deploy. Skipping Git push.")
-            except Exception as ge:
-                print(f"Warning: Automated Git deployment failed: {ge}")
-        else:
-            print("\nDeployment skipped due to test failures.")
-            
+        db = DBManager()
+        with db.get_connection() as conn:
+            projects = conn.execute("SELECT name FROM projects").fetchall()
+        existing_projects = [p[0] for p in projects]
     except Exception as e:
-        print(f"\nError running SDLC pipeline: {e}")
-        import traceback
-        traceback.print_exc()
+        ui.print_stage_warning("Triage DB", f"Could not fetch existing projects from DB: {e}")
+        existing_projects = []
+
+    project_name = "software_project"
+    mode = "new"
+
+    def run_llm_triage():
+        nonlocal project_name, mode
+        if HAS_CREW and Agent is not None and Task is not None and Crew is not None and Process is not None:
+            try:
+                agent_wrapper = BaseAgent("requirement_agent")
+                llm = agent_wrapper.llm
+                
+                classifier_agent = Agent(
+                    role="Project Requirements Triage Agent",
+                    goal="Classify user requirement prompt into project_name and mode.",
+                    backstory=(
+                        "You are a detail-oriented triage coordinator. You parse user software requirements "
+                        "to determine the target project name (as a clean, lowercase snake_case slug) "
+                        "and whether this is a greenfield project ('new') or an update to an existing project ('evolve')."
+                    ),
+                    llm=llm,
+                    verbose=False,
+                    allow_delegation=False
+                )
+                
+                classifier_task = Task(
+                    description=(
+                        f"Analyze the user requirement prompt: \"{prompt}\"\n\n"
+                        f"Here is the list of existing projects: {existing_projects}\n\n"
+                        "Determine:\n"
+                        "1. 'project_name': A clean lowercase snake_case identifier for the project. "
+                        "If the prompt references or seems to update/add features to one of the existing projects "
+                        "in the list, you must use that exact existing project name. Otherwise, create a new one.\n"
+                        "2. 'mode': Must be either 'evolve' (if the project matches or refers to one of the existing projects) "
+                        "or 'new' (if the project is not in the list of existing projects).\n\n"
+                        "You must output ONLY a valid JSON object. Do not include markdown code block formatting or any other text. "
+                        "Example output:\n"
+                        "{\"project_name\": \"calculator\", \"mode\": \"evolve\"}"
+                    ),
+                    expected_output="A JSON object containing keys 'project_name' and 'mode'.",
+                    agent=classifier_agent
+                )
+                
+                crew = Crew(
+                    agents=[classifier_agent],
+                    tasks=[classifier_task],
+                    process=Process.sequential,
+                    verbose=False
+                )
+                
+                classification_raw = str(crew.kickoff()).strip()
+                clean_result = classification_raw
+                if "```" in clean_result:
+                    match = re.search(r"```(?:json)?\s*(.*?)\s*```", clean_result, re.DOTALL)
+                    if match:
+                        clean_result = match.group(1).strip()
+                
+                data = json.loads(clean_result)
+                project_name = data.get("project_name", "").strip().lower().replace(" ", "_")
+                mode = data.get("mode", "new").strip().lower()
+                return
+            except Exception:
+                pass
+
+        # Heuristic fallback
+        GENERIC_WORDS = {"build", "create", "make", "run", "test", "app", "project", "software_project", "new"}
+        for p in existing_projects:
+            if p.lower() not in GENERIC_WORDS and re.search(r'\b' + re.escape(p.lower()) + r'\b', prompt.lower()):
+                project_name = p
+                mode = "evolve"
+                return
+
+        if mode == "new":
+            nouns = [w for w in re.findall(r'\b[a-zA-Z0-9_]+\b', prompt.lower()) if w not in GENERIC_WORDS and len(w) > 2 and w not in {"simple", "in", "for", "with", "c", "cpp", "python"}]
+            if nouns:
+                project_name = "_".join(nouns[:2])
+
+    if ui.is_rich_available():
+        with ui.console.status("[bold cyan]Analyzing requirements & triaging project scope...", spinner="dots"):
+            run_llm_triage()
+    else:
+        print("Analyzing requirements and identifying project scope...")
+        run_llm_triage()
+
+    if not project_name:
+        project_name = "software_project"
+    project_name = project_name.lower().replace(" ", "_")
+
+    # Override heuristic: if user explicitly mentions an existing project name in prompt
+    GENERIC_WORDS = {"build", "create", "make", "run", "test", "app", "project", "software_project", "new"}
+    for p in existing_projects:
+        if p.lower() not in GENERIC_WORDS and re.search(r'\b' + re.escape(p.lower()) + r'\b', prompt.lower()):
+            project_name = p
+            mode = "evolve"
+            break
+
+    if mode == "evolve" and project_name not in existing_projects:
+        mode = "new"
+
+    return project_name, mode
+
+
+def execute_pipeline(project_name: str, mode: str, prompt: str):
+    """
+    Executes the multi-agent SDLC pipeline, automated verification, and Git deployment.
+    """
+    project_name = project_name.lower().replace(" ", "_")
+    target_lang = detect_language(prompt)
+    
+    ui.print_triage_result(project_name=project_name, mode=mode, language=target_lang)
+
+    manager = SDLCCrewManager(project_name=project_name)
+    if mode == "new":
+        ui.print_header("INITIALIZING GREENFIELD SDLC PIPELINE", f"Project: {project_name}")
+        manager.run_pipeline(prompt=prompt, mode="new")
+    else:
+        ui.print_header("EVOLVING EXISTING SDLC PROJECT", f"Project: {project_name}")
+        manager.run_pipeline(prompt=prompt, mode="evolve")
+
+    # Automated Verification Stage
+    ui.print_header("STAGE: AUTOMATED VERIFICATION (TESTS)", f"Project: {project_name}")
+    project_dir = os.path.join("projects", project_name)
+    tests_passed = True
+    compile_success = True
+    compile_output = ""
+    test_success = True
+    test_output = ""
+    debug_applied = False
+    debug_success = False
+
+    language = load_project_language(project_dir) or detect_language(prompt)
+    if language in {"c", "cpp"}:
+        makefile_path = os.path.join(project_dir, "Makefile")
+        if not os.path.exists(makefile_path):
+            ui.print_stage_warning("Makefile Generator", "No Makefile found. Generating default C/C++ Makefile...")
+            try:
+                generate_makefile(project_dir, project_name, language)
+            except Exception as e:
+                ui.print_stage_warning("Makefile Error", f"Failed to generate Makefile: {e}")
+
+        compile_success, compile_output = compile_project(project_dir)
+        if compile_success:
+            test_dir = os.path.join(project_dir, "tests")
+            if os.path.isdir(test_dir):
+                test_success, test_output = run_c_tests(project_dir)
+
+        if not compile_success or not test_success:
+            debug_applied = True
+            ui.print_stage_warning("C/C++ Debugger", "Initial verification failed. Running automated C/C++ debugging pass...")
+            debug_success, dbg_out = debug_c_project(project_dir)
+            test_output = (test_output or compile_output) + "\n\n" + dbg_out
+            tests_passed = debug_success
+        else:
+            tests_passed = True
+    else:
+        test_dir = os.path.join(project_dir, "tests")
+        if os.path.exists(test_dir):
+            env = os.environ.copy()
+            env["PYTHONPATH"] = project_dir
+            
+            result = subprocess.run(
+                [sys.executable, "-m", "pytest", project_dir],
+                env=env,
+                capture_output=True,
+                text=True
+            )
+            test_output = result.stdout + ("\n" + result.stderr if result.stderr else "")
+            test_success = (result.returncode == 0)
+            tests_passed = test_success
+        else:
+            test_output = "No pytest suite found in tests directory. Skipping verification."
+            test_success = True
+            tests_passed = True
+
+    ui.print_verification_summary(
+        project_name=project_name,
+        language=language,
+        compile_success=compile_success,
+        compile_output=compile_output,
+        test_success=test_success,
+        test_output=test_output,
+        debug_applied=debug_applied,
+        debug_success=debug_success
+    )
+
+    # Automated Deployment Stage
+    if tests_passed:
+        ui.print_header("STAGE: AUTOMATED DEPLOYMENT (GIT PUSH)", f"Project: {project_name}")
+        try:
+            add_paths = [
+                os.path.join("projects", project_name),
+                os.path.join("reports", project_name)
+            ]
+            existing_add_paths = [p for p in add_paths if os.path.exists(p)]
+            if existing_add_paths:
+                subprocess.run(["git", "add"] + existing_add_paths, check=True)
+                status_result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+                if status_result.stdout.strip():
+                    commit_msg = f"auto(sdlc): update {project_name} autonomously"
+                    subprocess.run(["git", "commit", "-m", commit_msg], check=True)
+                    subprocess.run(["git", "push"], check=True)
+                    ui.print_deployment_summary(project_name, existing_add_paths, commit_msg, pushed=True)
+                else:
+                    ui.print_deployment_summary(project_name, [], "", pushed=False, skipped_reason="No uncommitted changes detected.")
+            else:
+                ui.print_deployment_summary(project_name, [], "", pushed=False, skipped_reason="No project artifacts found to stage.")
+        except Exception as ge:
+            ui.print_stage_warning("Git Deployment", f"Automated Git deployment warning: {ge}")
+    else:
+        ui.print_deployment_summary(project_name, [], "", pushed=False, skipped_reason="Deployment skipped due to verification test failures.")
+
+
+def prompt_and_run_direct():
+    """
+    Direct prompt entry when main.py is executed without arguments.
+    """
+    ui.print_banner()
+    if ui.is_rich_available():
+        from rich.prompt import Prompt
+        prompt = Prompt.ask("[bold bright_white]Please describe your software requirements[/bold bright_white]").strip()
+    else:
+        prompt = input("Please describe your software requirements: ").strip()
+
+    if not prompt:
+        if ui.is_rich_available():
+            ui.print_stage_warning("Input Error", "Requirements prompt cannot be empty. Exiting.")
+        else:
+            print("Requirements prompt cannot be empty. Exiting.")
         sys.exit(1)
+
+    project_name, mode = autonomous_triage(prompt)
+    execute_pipeline(project_name, mode, prompt)
+
+
+def main():
+    check_env_file()
+
+    parser = argparse.ArgumentParser(
+        description="EvoForge SDLC Framework: Autonomous Multi-Agent Software Development Lifecycle Manager"
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # run-new parser
+    parser_new = subparsers.add_parser("run-new", help="Initialize and run a new software project")
+    parser_new.add_argument("--name", help="Name of the project (optional, determined autonomously if omitted)")
+    parser_new.add_argument("--prompt", required=True, help="Functional requirements prompt for the new project")
+
+    # evolve parser
+    parser_evolve = subparsers.add_parser("evolve", help="Evolve an existing software project incrementally")
+    parser_evolve.add_argument("--name", help="Name of the project to evolve")
+    parser_evolve.add_argument("--prompt", required=True, help="Incremental feature updates prompt")
+
+    # list parser
+    subparsers.add_parser("list", help="List all existing projects in portfolio")
+
+    # inspect parser
+    parser_inspect = subparsers.add_parser("inspect", help="Inspect project file tree and SRS specifications")
+    parser_inspect.add_argument("--name", required=True, help="Name of the project to inspect")
+
+    # config parser
+    subparsers.add_parser("config", help="View system diagnostics and LLM configuration")
+
+    if len(sys.argv) == 1:
+        prompt_and_run_direct()
+        sys.exit(0)
+
+    args = parser.parse_args()
+
+    if args.command in {"list", "projects"}:
+        ui.print_banner()
+        portfolio = ui.fetch_project_portfolio()
+        ui.print_projects_portfolio(portfolio)
+
+    elif args.command == "inspect":
+        ui.print_banner()
+        p_dir, r_dir, files, srs = ui.get_project_inspect_info(args.name)
+        ui.print_project_details(args.name, p_dir, r_dir, files, srs)
+
+    elif args.command in {"config", "diagnostics"}:
+        ui.print_banner()
+        env_vars = {k: os.getenv(k, "") for k in ["LLM_PROVIDER", "OLLAMA_MODEL", "OLLAMA_BASE_URL", "GEMINI_MODEL", "GEMINI_API_KEY", "OPENAI_MODEL", "OPENAI_API_KEY", "CREWAI_DISABLE_TELEMETRY"]}
+        db_status = "Connected & Initialized (SQLite)"
+        try:
+            db = DBManager()
+            with db.get_connection() as conn:
+                conn.execute("SELECT 1")
+        except Exception as e:
+            db_status = f"Error: {e}"
+        ui.print_system_diagnostics(env_vars, db_status, HAS_CREW)
+
+    elif args.command == "run-new":
+        ui.print_banner()
+        project_name = args.name
+        if not project_name:
+            project_name, mode = autonomous_triage(args.prompt)
+        else:
+            mode = "new"
+        execute_pipeline(project_name, mode, args.prompt)
+
+    elif args.command == "evolve":
+        ui.print_banner()
+        project_name = args.name
+        if not project_name:
+            project_name, mode = autonomous_triage(args.prompt)
+        else:
+            mode = "evolve"
+        execute_pipeline(project_name, mode, args.prompt)
+
+    else:
+        parser.print_help()
+
 
 if __name__ == "__main__":
     main()
+

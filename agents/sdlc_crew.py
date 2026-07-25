@@ -24,6 +24,7 @@ from tools.requirement_tools import classify_requirements
 from tools.static_analysis import build_dependency_graph, dependency_graph_to_json
 from tools.reuse_tools import generate_reuse_decision_report
 from tools.impact_tools import generate_test_impact_report
+import tools.cli_ui as ui
 
 class SDLCCrewManager:
     def __init__(self, project_name: str):
@@ -62,17 +63,20 @@ class SDLCCrewManager:
         self.project_language = saved_language or prompt_language
         if saved_language and saved_language != prompt_language:
             if not self._project_has_source_files():
-                print(
-                    f"Prompt indicates '{prompt_language}' but existing project language is '{saved_language}'. "
-                    "Overriding language based on prompt because the project contains no source files."
+                ui.print_stage_warning(
+                    "Language Override",
+                    f"Prompt indicates '{prompt_language}' but existing project language is '{saved_language}'. Overriding language based on prompt."
                 )
                 self.project_language = prompt_language
             else:
-                print(
-                    f"Existing project language '{saved_language}' will be preserved for this run. "
-                    "Use a different project name to create a new C/C++ project."
+                ui.print_stage_warning(
+                    "Language Preserved",
+                    f"Existing project language '{saved_language}' will be preserved for this run."
                 )
         save_project_language(self.project_dir, self.project_language)
+
+        # STAGE 1: Requirements Analysis
+        ui.print_stage_card(1, 5, "Requirements Analysis & SRS Delta", "Parsing functional prompt, analyzing existing specification, and triaging requirement delta.")
         raw_srs = self._run_requirement_stage(prompt, existing_srs, srs_path)
 
         merged_srs, delta_report, classified_requirements = classify_requirements(existing_srs, raw_srs)
@@ -82,19 +86,18 @@ class SDLCCrewManager:
             try:
                 self.db.store_srs_version(self.project_id, merged_srs, note=mode)
             except Exception as e:
-                print(f"Warning: Failed to store SRS version in DB: {e}")
-        else:
-            print("DBManager.store_srs_version not available; skipping DB persistence for SRS.")
+                ui.print_stage_warning("DB Persistence", f"Failed to store SRS version in DB: {e}")
+        ui.print_stage_success("Requirement Stage", "SRS specification synthesized & requirement delta classified.")
 
+        # STAGE 2: Architecture & Dependency Modeling
+        ui.print_stage_card(2, 5, "Architecture & Dependency Modeling", "Generating static dependency graph, evaluating asset reuse, and modeling software design.")
         dependency_graph = build_dependency_graph(self.project_dir)
         save_json(dependency_path, dependency_graph)
         if hasattr(self.db, 'store_dependency_graph'):
             try:
                 self.db.store_dependency_graph(self.project_id, "static", dependency_graph_to_json(dependency_graph), file_path=dependency_path)
             except Exception as e:
-                print(f"Warning: Failed to store dependency graph in DB: {e}")
-        else:
-            print("DBManager.store_dependency_graph not available; skipping DB persistence for dependency graph.")
+                ui.print_stage_warning("DB Persistence", f"Failed to store dependency graph in DB: {e}")
 
         reuse_report = generate_reuse_decision_report(self.project_dir, merged_srs)
         write_file(reuse_path, reuse_report)
@@ -104,19 +107,31 @@ class SDLCCrewManager:
         write_file(test_impact_path, test_impact_report)
 
         self._run_design_stage(design_output=os.path.join(self.reports_dir, "Design.md"), delta_path=delta_path)
-        # Lazy import BaseAgent to avoid import-time dependency on crewai
+        ui.print_stage_success("Architecture Stage", "Dependency graph, reuse decisions & design documents updated.")
+
+        # STAGE 3: Automated Code Generation
+        ui.print_stage_card(3, 5, "Automated Code Engineering", "Generating source files, module headers, and build configuration specs.")
         try:
             from agents.base_agent import BaseAgent as _BaseAgent
             code_agent_name = "c_code_agent" if self.project_language in {"c", "cpp"} else "code_agent"
             code_agent_wrapper = _BaseAgent(code_agent_name)
         except Exception as e:
-            print(f"Could not import BaseAgent for code stage: {e}. Proceeding with fallback.")
+            ui.print_stage_warning("Agent Initialization", f"Could not import BaseAgent for code stage: {e}. Proceeding with fallback.")
             code_agent_wrapper = None
         self._run_code_stage(code_agent_wrapper=code_agent_wrapper, code_output=None, dependency_path=dependency_path, reuse_path=reuse_path, delta_path=delta_path)
+        ui.print_stage_success("Code Engineering Stage", "Source files and build artifacts synthesized.")
+
+        # STAGE 4: Testing & Test Suite Synthesis
+        ui.print_stage_card(4, 5, "Test Suite & Impact Mapping", "Synthesizing test cases and mapping requirement impact to test execution suites.")
         self._run_testing_stage(testing_output_dir=os.path.join(self.project_dir, "tests"), test_impact_path=test_impact_path)
+        ui.print_stage_success("Testing Stage", "Test suite files generated and mapped to impact specs.")
+
+        # STAGE 5: Documentation & Spec Persistence
+        ui.print_stage_card(5, 5, "Documentation & Spec Persistence", "Generating project documentation and updating SQLite DB version control.")
         self._run_documentation_stage(doc_output_dir=self.project_dir)
 
         self._update_db_registry_and_run(mode)
+        ui.print_stage_success("Documentation Stage", "Project documentation synthesized and version control updated.")
         return {
             "srs": srs_path,
             "delta_report": delta_path,
