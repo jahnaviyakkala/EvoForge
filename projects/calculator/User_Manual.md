@@ -1,23 +1,12 @@
-# User Manual: Simple Calculator
-This manual guides you through using the command-line calculator.
-## Basic Usage
-1. Launch the utility:
-   ```bash
-cd projects/calculator && python main.py
-```
-2. You will see:
-   ```text
-   Simple Calculator Command-Line Utility
-Type 'q' to quit.
-Enter operation (+, -, *, /):
-```
-3. Type the operation operator (e.g. `+`) and press Enter.
-4. When prompted, enter two numbers separated by a space:
-   ```text
-   Enter two numbers separated by space: 10 5
-   ``
-5. The result is printed:
-   ```text
-   10.0 + 5.0 = 15.0
-   ```
-6. You can also quit the application by typing `q` at the operation prompt.
+# User Manual
+
+This project provides a C++ calculator library and an example application.
+
+## Build Instructions
+1. Run `make` to compile the executable.
+2. Run `make test` to build and execute the test runner.
+
+## Usage
+1. Build the code with `make`.
+2. Execute `./calculator`.
+3. The program demonstrates operations on the calculator component.

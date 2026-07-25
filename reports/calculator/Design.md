@@ -1,44 +1,26 @@
-# Design of Calculator Utility
+# Design Document
 
-## Overview
-This design outlines the modular architecture for a calculator utility system. The system supports basic arithmetic operations and modulo calculation, adhering to performance and reliability constraints.
+## Architecture Overview
+The project is a C++ library providing a Calculator module.
 
-### Module Specifications
-- **CalculatorModule**: Implements core arithmetic operations including addition, subtraction, multiplication, division, and modulo calculation.
-  - Methods:
-    - `add_numbers`: Adds two numbers.
-    - `subtract_numbers`: Subtracts two numbers.
-    - `multiply_numbers`: Multiplies two numbers.
-    - `divide_numbers`: Divides two numbers.
-    - `modulo_calculation`: Performs modulo operation on two numbers.
+## Module Specifications
+- `calculator.hpp`: Public API declarations for the calculator component.
+- `calculator.cpp`: Core implementation of calculator operations.
+- `main.cpp`: Example usage and demonstration program.
+- `tests/test_runner.cpp`: Automated test harness validating calculator functionality.
 
-- **HistoryModule**: Tracks and maintains the history of operations performed by the calculator utility.
-  - Methods:
-    - `record_operation`: Records an arithmetic operation in the system's history.
+## Data Model
+- `Calculator` struct storing module state and resources.
 
-### Structural Diagrams
-- **Mermaid Diagrams**
-  - **System Architecture Overview** (Diagram Not Provided)
-  - **Module Interfaces** (Diagram Not Provided)
-  - **Sequence Flow Diagram** (Diagram Not Provided)
+## Sequence Flow
+```mermaid
+sequenceDiagram
+    participant User
+    participant Main
+    participant CalculatorModule
 
-## Class Specifications
-- **CalculatorModule**: Implements core arithmetic operations.
-  - Methods:
-    - `add_numbers`: Adds two numbers.
-    - `subtract_numbers`: Subtracts two numbers.
-    - `multiply_numbers`: Multiplies two numbers.
-    - `divide_numbers`: Divides two numbers.
-    - `modulo_calculation`: Performs modulo operation on two numbers.
-
-- **HistoryModule**: Tracks and maintains the history of operations performed by the calculator utility.
-  - Methods:
-    - `record_operation`: Records an arithmetic operation in the system's history.
-
-## Sequence Flow Diagrams
-- **Mermaid Diagrams**
-  - **System Architecture Overview** (Diagram Not Provided)
-  - **Module Interfaces** (Diagram Not Provided)
-  - **Sequence Flow Diagram** (Diagram Not Provided)
-
-### Structural & Sequence flow diagrams are not provided in the SRS.md but can be generated using Mermaid tools.
+    User->>Main: start program
+    Main->>CalculatorModule: init
+    Main->>CalculatorModule: operate
+    Main->>CalculatorModule: destroy
+```
