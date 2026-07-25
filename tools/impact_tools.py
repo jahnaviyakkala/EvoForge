@@ -3,8 +3,8 @@ import re
 from typing import Dict, List, Set
 from tools.file_tools import read_file
 
-TEST_FILE_PATTERN = re.compile(r"test_.*\.py$", re.IGNORECASE)
-IMPORT_PATTERN = re.compile(r"^\s*from\s+([\w\.]+)\s+import|^\s*import\s+([\w\.]+)", re.MULTILINE)
+TEST_FILE_PATTERN = re.compile(r"^(test_.*|.*_test)\.(py|c|cpp|cxx|cc)$", re.IGNORECASE)
+IMPORT_PATTERN = re.compile(r"^\s*from\s+([\w\.]+)\s+import|^\s*import\s+([\w\.]+)|#include\s*[<\"]([\w\./]+)[>\"]", re.MULTILINE)
 
 
 def list_test_files(project_dir: str) -> List[str]:
@@ -13,7 +13,7 @@ def list_test_files(project_dir: str) -> List[str]:
         if "tests" not in root and not root.endswith("tests"):
             continue
         for filename in files:
-            if TEST_FILE_PATTERN.match(filename):
+            if TEST_FILE_PATTERN.match(filename) or filename in ("test_runner.c", "test_runner.cpp"):
                 tests.append(os.path.relpath(os.path.join(root, filename), project_dir))
     return sorted(tests)
 

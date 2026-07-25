@@ -5,6 +5,9 @@ import re
 from collections import defaultdict
 from typing import Any, Dict, List
 
+# C/C++ analysis is provided by build_tools (lazy import to avoid circular deps)
+_C_EXTENSIONS = {'.c', '.cpp', '.cxx', '.cc', '.h', '.hpp', '.hxx'}
+
 API_MODULES = {
     "requests", "httpx", "urllib", "flask", "fastapi", "django", "bottle", "aiohttp", "graphene", "socketio"
 }
@@ -89,11 +92,15 @@ def _collect_call_edges(tree: ast.AST) -> List[Dict[str, str]]:
             func_name = _get_name(node.func)
             if func_name:
                 caller = "<unknown>"
-                parent = getattr(node, "parent", None)
-                if isinstance(parent, ast.FunctionDef):
-                    caller = parent.name
-                elif isinstance(parent, ast.ClassDef):
-                    caller = parent.name
+                curr = getattr(node, "parent", None)
+                while curr is not None:
+                    if isinstance(curr, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        caller = curr.name
+                        break
+                    elif isinstance(curr, ast.ClassDef):
+                        caller = curr.name
+                        break
+                    curr = getattr(curr, "parent", None)
                 edges.append({"caller": caller, "callee": func_name})
     return edges
 
@@ -148,29 +155,58 @@ def build_dependency_graph(project_dir: str) -> Dict[str, Any]:
         if any(part in root for part in [".venv", "__pycache__", ".git", ".pytest_cache"]):
             continue
         for filename in files:
-            if not filename.endswith(".py"):
-                continue
             file_path = os.path.join(root, filename)
-            file_analysis = analyze_python_file(file_path, project_dir)
-            if not file_analysis:
-                continue
-            rel_path = file_analysis["path"]
-            project_graph["modules"][rel_path] = {
-                "imports": file_analysis["imports"],
-                "api_dependencies": file_analysis["api_dependencies"],
-                "definitions": file_analysis["definitions"],
-                "call_edges": file_analysis["call_edges"],
-            }
-            project_graph["module_imports"][rel_path] = file_analysis["imports"]
-            for dep in file_analysis["api_dependencies"]:
-                if dep == "sql":
-                    project_graph["db_dependencies"].add(dep)
-                else:
-                    project_graph["api_dependencies"].add(dep)
+            _, ext = os.path.splitext(filename)
 
-            for cls in file_analysis["definitions"]["classes"]:
-                project_graph["class_dependency_graph"][cls["name"]] = cls["bases"]
-            project_graph["function_call_graph"].extend(file_analysis["call_edges"])
+            # --- Python analysis ---
+            if ext == ".py":
+                file_analysis = analyze_python_file(file_path, project_dir)
+                if not file_analysis:
+                    continue
+                rel_path = file_analysis["path"]
+                project_graph["modules"][rel_path] = {
+                    "imports": file_analysis["imports"],
+                    "api_dependencies": file_analysis["api_dependencies"],
+                    "definitions": file_analysis["definitions"],
+                    "call_edges": file_analysis["call_edges"],
+                    "language": "python",
+                }
+                project_graph["module_imports"][rel_path] = file_analysis["imports"]
+                for dep in file_analysis["api_dependencies"]:
+                    if dep == "sql":
+                        project_graph["db_dependencies"].add(dep)
+                    else:
+                        project_graph["api_dependencies"].add(dep)
+                for cls in file_analysis["definitions"]["classes"]:
+                    project_graph["class_dependency_graph"][cls["name"]] = cls["bases"]
+                project_graph["function_call_graph"].extend(file_analysis["call_edges"])
+
+            # --- C / C++ analysis ---
+            elif ext in _C_EXTENSIONS:
+                try:
+                    from tools.build_tools import analyze_c_file
+                except ImportError:
+                    continue
+                file_analysis = analyze_c_file(file_path, project_dir)
+                if not file_analysis:
+                    continue
+                rel_path = file_analysis["path"]
+                project_graph["modules"][rel_path] = {
+                    "imports": file_analysis.get("includes", []),
+                    "api_dependencies": [],
+                    "definitions": {
+                        "functions": file_analysis.get("functions", []),
+                        "classes": [],
+                        "structs": file_analysis.get("structs", []),
+                    },
+                    "call_edges": [],
+                    "language": file_analysis.get("language", "c"),
+                }
+                project_graph["module_imports"][rel_path] = file_analysis.get("includes", [])
+                for fn in file_analysis.get("functions", []):
+                    project_graph["function_call_graph"].append(
+                        {"caller": rel_path, "callee": fn["name"]}
+                    )
 
     project_graph["api_dependencies"] = sorted(project_graph["api_dependencies"])
     project_graph["db_dependencies"] = sorted(project_graph["db_dependencies"])

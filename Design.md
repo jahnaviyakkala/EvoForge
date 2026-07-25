@@ -1,42 +1,38 @@
-# Design of Calculator Utility
+## System Architecture Overview
 
-## Overview
-This design outlines the modular architecture for a calculator utility system. The system supports basic arithmetic operations and modulo calculation, adhering to performance and reliability constraints.
+The system is designed following the Clean Architecture principles, ensuring separation of concerns and high modularity. The architecture consists of several layers including Entities, Use Cases, Interfaces, and Frameworks & Drivers.
 
-### Module Specifications
-- **CalculatorModule**: Implements core arithmetic operations including addition, subtraction, multiplication, division, and modulo calculation.
-  - Methods:
-    - `add_numbers`: Adds two numbers.
-    - `subtract_numbers`: Subtracts two numbers.
-    - `multiply_numbers`: Multiplies two numbers.
-    - `divide_numbers`: Divides two numbers.
-    - `modulo_calculation`: Performs modulo operation on two numbers.
-- **HistoryModule**: Tracks and maintains the history of operations performed by the calculator utility.
-  - Methods:
-    - `record_operation`: Records an arithmetic operation in the system's history.
+## Module and Class Specifications
 
-### Structural Diagrams
-- **Mermaid Diagrams**
-  - **System Architecture Overview** (Diagram Not Provided)
-  - **Module Interfaces** (Diagram Not Provided)
-  - **Sequence Flow Diagram** (Diagram Not Provided)
+### Class Names, Methods, Signatures, Docstrings
 
-## Class Specifications
-- **CalculatorModule**: Implements core arithmetic operations.
-  - Methods:
-    - `add_numbers`: Adds two numbers.
-    - `subtract_numbers`: Subtracts two numbers.
-    - `multiply_numbers`: Multiplies two numbers.
-    - `divide_numbers`: Divides two numbers.
-    - `modulo_calculation`: Performs modulo operation on two numbers.
-- **HistoryModule**: Tracks and maintains the history of operations performed by the calculator utility.
-  - Methods:
-    - `record_operation`: Records an arithmetic operation in the system's history.
+#### User Entity
+- `class User`
+  - `__init__(self, user_id: int, username: str)`
+    - Initializes a new user with an ID and username.
+  - `get_user_id(self) -> int`
+    - Returns the user's ID.
+  - `set_username(self, username: str)`
+    - Sets a new username for the user.
 
-## Sequence Flow Diagrams
-- **Mermaid Diagrams**
-  - **System Architecture Overview** (Diagram Not Provided)
-  - **Module Interfaces** (Diagram Not Provided)
-  - **Sequence Flow Diagram** (Diagram Not Provided)
+#### UserRepository Interface
+- `interface UserRepository`
+  - `find_by_id(self, user_id: int) -> User`
+    - Finds and returns a user by their ID.
+  - `save(self, user: User)`
+    - Saves or updates a user in the repository.
 
-### Structural & Sequence flow diagrams are not provided in the SRS.md but can be generated using Mermaid tools.
+## Structural & Sequence Flow
+
+```mermaid
+sequenceDiagram
+    participant UI as User Interface
+    participant UC as Use Case Layer
+    participant REPO as Repository Layer
+    participant ENT as Entity Layer
+
+    UI->>UC: Request to find a user by ID
+    UC->>REPO: find_by_id(user_id)
+    REPO->>ENT: Return User object
+    UC->>UI: Display user details
+```

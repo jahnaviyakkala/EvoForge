@@ -1,0 +1,247 @@
+{
+  "modules": {
+    "calculator.c": {
+      "imports": [
+        "calculator.h",
+        "stddef.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "calculate",
+            "return_type": "bool",
+            "params": [
+              "double a",
+              "double b",
+              "char op",
+              "double *result"
+            ]
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "stack.c": {
+      "imports": [
+        "stack.h",
+        "stdlib.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "stack_init",
+            "return_type": "void",
+            "params": [
+              "Stack *stack",
+              "size_t initial_capacity"
+            ]
+          },
+          {
+            "name": "stack_push",
+            "return_type": "void",
+            "params": [
+              "Stack *stack",
+              "int value"
+            ]
+          },
+          {
+            "name": "stack_pop",
+            "return_type": "bool",
+            "params": [
+              "Stack *stack",
+              "int *value"
+            ]
+          },
+          {
+            "name": "stack_peek",
+            "return_type": "bool",
+            "params": [
+              "const Stack *stack",
+              "int *value"
+            ]
+          },
+          {
+            "name": "stack_is_empty",
+            "return_type": "bool",
+            "params": [
+              "const Stack *stack"
+            ]
+          },
+          {
+            "name": "stack_destroy",
+            "return_type": "void",
+            "params": [
+              "Stack *stack"
+            ]
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "stack.h": {
+      "imports": [
+        "stdbool.h",
+        "stddef.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "main.c": {
+      "imports": [
+        "calculator.h",
+        "stdio.h",
+        "stdlib.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "main",
+            "return_type": "int",
+            "params": [
+              "void"
+            ]
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "calculator.h": {
+      "imports": [
+        "stdbool.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "tests/test_runner.c": {
+      "imports": [
+        "assert.h",
+        "calculator.h",
+        "stdbool.h",
+        "stdio.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "run_test",
+            "return_type": "void",
+            "params": [
+              "double a",
+              "double b",
+              "char op",
+              "double expected"
+            ]
+          },
+          {
+            "name": "main",
+            "return_type": "int",
+            "params": [
+              "void"
+            ]
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    }
+  },
+  "module_imports": {
+    "calculator.c": [
+      "calculator.h",
+      "stddef.h"
+    ],
+    "stack.c": [
+      "stack.h",
+      "stdlib.h"
+    ],
+    "stack.h": [
+      "stdbool.h",
+      "stddef.h"
+    ],
+    "main.c": [
+      "calculator.h",
+      "stdio.h",
+      "stdlib.h"
+    ],
+    "calculator.h": [
+      "stdbool.h"
+    ],
+    "tests/test_runner.c": [
+      "assert.h",
+      "calculator.h",
+      "stdbool.h",
+      "stdio.h"
+    ]
+  },
+  "api_dependencies": [],
+  "db_dependencies": [],
+  "class_dependency_graph": {},
+  "function_call_graph": [
+    {
+      "caller": "calculator.c",
+      "callee": "calculate"
+    },
+    {
+      "caller": "stack.c",
+      "callee": "stack_init"
+    },
+    {
+      "caller": "stack.c",
+      "callee": "stack_push"
+    },
+    {
+      "caller": "stack.c",
+      "callee": "stack_pop"
+    },
+    {
+      "caller": "stack.c",
+      "callee": "stack_peek"
+    },
+    {
+      "caller": "stack.c",
+      "callee": "stack_is_empty"
+    },
+    {
+      "caller": "stack.c",
+      "callee": "stack_destroy"
+    },
+    {
+      "caller": "main.c",
+      "callee": "main"
+    },
+    {
+      "caller": "tests/test_runner.c",
+      "callee": "run_test"
+    },
+    {
+      "caller": "tests/test_runner.c",
+      "callee": "main"
+    }
+  ]
+}

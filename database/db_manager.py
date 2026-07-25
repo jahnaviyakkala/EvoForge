@@ -145,3 +145,31 @@ class DBManager:
                 WHERE project_id = ? ORDER BY run_date DESC LIMIT 1
             """, (project_id,))
             return cursor.fetchone()
+
+    def store_srs_version(self, project_id, content, note=None):
+        from tools.file_tools import calculate_content_hash
+        content_hash = calculate_content_hash(content)
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT MAX(version) FROM srs_versions WHERE project_id = ?",
+                (project_id,)
+            )
+            val = cursor.fetchone()[0]
+            next_version = (val or 0) + 1
+            cursor.execute("""
+                INSERT INTO srs_versions (project_id, version, content_hash, content, note)
+                VALUES (?, ?, ?, ?, ?)
+            """, (project_id, next_version, content_hash, content, note))
+            conn.commit()
+            return cursor.lastrowid
+
+    def store_dependency_graph(self, project_id, graph_type, graph_json, file_path=None):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO dependency_graphs (project_id, graph_type, file_path, graph_json)
+                VALUES (?, ?, ?, ?)
+            """, (project_id, graph_type, file_path, graph_json))
+            conn.commit()
+            return cursor.lastrowid

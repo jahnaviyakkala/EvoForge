@@ -23,19 +23,23 @@ def calculate_content_hash(content: str) -> str:
 
 def save_json(file_path: str, data: object) -> None:
     """Write JSON serializable data to a file."""
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    parent_dir = os.path.dirname(file_path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 def read_file(file_path):
     """Read contents of a file safely."""
     if not os.path.exists(file_path):
         return ""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
         return f.read()
 
 def write_file(file_path, content):
     """Write contents to a file, ensuring directories exist."""
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    parent_dir = os.path.dirname(file_path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(content)
 

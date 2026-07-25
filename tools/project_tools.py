@@ -8,6 +8,8 @@ except Exception:
         return _decorator
 import os
 from tools.file_tools import read_file, write_file, parse_python_ast
+from tools.build_tools import compile_project as _compile_project, generate_makefile as _generate_makefile, run_c_tests as _run_c_tests, analyze_c_bugs as _analyze_c_bugs, debug_c_project as _debug_c_project
+from tools.language_tools import detect_language, save_project_language as _save_project_language, load_project_language as _load_project_language
 
 project_base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -52,3 +54,63 @@ def analyze_python_ast(file_path: str) -> str:
         file_path = os.path.join(project_base_dir, file_path)
     res = parse_python_ast(file_path)
     return str(res)
+
+@tool("detect_project_language")
+def detect_project_language(prompt: str) -> str:
+    """Detect the intended project language from a user prompt."""
+    return detect_language(prompt)
+
+@tool("save_project_language")
+def save_project_language(project_dir: str, language: str) -> str:
+    """Persist the project language to a hidden metadata file."""
+    if not os.path.isabs(project_dir):
+        project_dir = os.path.join(project_base_dir, project_dir)
+    _save_project_language(project_dir, language)
+    return f"Saved project language '{language}' to {project_dir}"
+
+@tool("load_project_language")
+def load_project_language(project_dir: str) -> str:
+    """Load the persisted project language or infer it from source files."""
+    if not os.path.isabs(project_dir):
+        project_dir = os.path.join(project_base_dir, project_dir)
+    return _load_project_language(project_dir)
+
+@tool("generate_makefile")
+def generate_makefile(project_dir: str, project_name: str, language: str) -> str:
+    """Generate an auto-generated Makefile for a C/C++ project."""
+    if not os.path.isabs(project_dir):
+        project_dir = os.path.join(project_base_dir, project_dir)
+    return _generate_makefile(project_dir, project_name, language)
+
+@tool("compile_project")
+def compile_project(project_dir: str) -> str:
+    """Compile a C/C++ project using its Makefile."""
+    if not os.path.isabs(project_dir):
+        project_dir = os.path.join(project_base_dir, project_dir)
+    success, output = _compile_project(project_dir)
+    return output if success else f"ERROR: {output}"
+
+@tool("run_c_tests")
+def run_c_tests(project_dir: str) -> str:
+    """Compile and run C/C++ tests using make test."""
+    if not os.path.isabs(project_dir):
+        project_dir = os.path.join(project_base_dir, project_dir)
+    success, output = _run_c_tests(project_dir)
+    return output if success else f"ERROR: {output}"
+
+@tool("analyze_c_bugs")
+def analyze_c_bugs(project_dir: str) -> str:
+    """Perform static bug checks on C/C++ source and header files."""
+    if not os.path.isabs(project_dir):
+        project_dir = os.path.join(project_base_dir, project_dir)
+    issues = _analyze_c_bugs(project_dir)
+    return str(issues) if issues else "No C/C++ static bug issues detected."
+
+@tool("debug_c_project")
+def debug_c_project(project_dir: str) -> str:
+    """Run automated debugging and compilation fix pass on a C/C++ project."""
+    if not os.path.isabs(project_dir):
+        project_dir = os.path.join(project_base_dir, project_dir)
+    success, output = _debug_c_project(project_dir)
+    return output if success else f"DEBUG ERROR: {output}"
+

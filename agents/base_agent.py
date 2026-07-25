@@ -132,7 +132,7 @@ class BaseAgent:
                 tools=tools or [],
                 verbose=True,
                 allow_delegation=False,
-                max_iter=5
+                max_iter=15
             )
 
         # Fallback: simple local agent that uses the LLM client created in _init_llm

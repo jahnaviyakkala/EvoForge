@@ -22,6 +22,8 @@ except Exception:
     Process = None
     HAS_CREW = False
 from database.db_manager import DBManager
+from tools.language_tools import detect_language, load_project_language
+from tools.build_tools import compile_project, run_c_tests, generate_makefile, debug_c_project
 import json
 import re
 import subprocess
@@ -62,7 +64,9 @@ def main():
             existing_projects = []
             
         try:
-            # Instantiate BaseAgent to get the configured LLM
+            # Instantiate BaseAgent to get the configured LLM if Crew is available.
+            if Agent is None or Task is None or Crew is None or Process is None:
+                raise RuntimeError("Crew is unavailable for autonomous classification")
             agent_wrapper = BaseAgent("requirement_agent")
             llm = agent_wrapper.llm
             
@@ -119,27 +123,34 @@ def main():
         except Exception as e:
             print(f"Warning: Autonomous classification failed or timed out: {e}")
             # Fallback heuristics
+            GENERIC_WORDS = {"build", "create", "make", "run", "test", "app", "project", "software_project", "new"}
             project_name = "software_project"
             mode = "new"
             for p in existing_projects:
-                if p.lower() in prompt.lower():
+                if p.lower() not in GENERIC_WORDS and re.search(r'\b' + re.escape(p.lower()) + r'\b', prompt.lower()):
                     project_name = p
                     mode = "evolve"
                     break
-        
+
+            if mode == "new":
+                nouns = [w for w in re.findall(r'\b[a-zA-Z0-9_]+\b', prompt.lower()) if w not in GENERIC_WORDS and len(w) > 2 and w not in {"simple", "in", "for", "with", "c", "cpp", "python"}]
+                if nouns:
+                    project_name = "_".join(nouns[:2])
+
         # Enforce name formatting and mode constraints
         if not project_name:
             project_name = "software_project"
         project_name = project_name.lower().replace(" ", "_")
-        
-        # Override heuristic: if user explicitly mentions an existing project name in the prompt,
+
+        # Override heuristic: if user explicitly mentions a specific existing project name in the prompt,
         # override the LLM's decision to ensure we evolve that project.
+        GENERIC_WORDS = {"build", "create", "make", "run", "test", "app", "project", "software_project", "new"}
         for p in existing_projects:
-            if re.search(r'\b' + re.escape(p.lower()) + r'\b', prompt.lower()):
+            if p.lower() not in GENERIC_WORDS and re.search(r'\b' + re.escape(p.lower()) + r'\b', prompt.lower()):
                 project_name = p
                 mode = "evolve"
                 break
-        
+
         if mode == "evolve" and project_name not in existing_projects:
             mode = "new"
             
@@ -198,33 +209,69 @@ def main():
         # Post-pipeline validation
         print("\n=== Stage: Automated Verification (Tests) ===")
         project_dir = os.path.join("projects", project_name)
-        test_dir = os.path.join(project_dir, "tests")
         tests_passed = True
-        
-        if os.path.exists(test_dir):
-            print(f"Running pytest suite in '{project_dir}'...")
-            env = os.environ.copy()
-            env["PYTHONPATH"] = project_dir
-            
-            result = subprocess.run(
-                [sys.executable, "-m", "pytest", project_dir],
-                env=env,
-                capture_output=True,
-                text=True
-            )
-            print(result.stdout)
-            if result.stderr:
-                print(result.stderr)
-                
-            if result.returncode == 0:
-                print("Verification successful: All tests passed!")
-                tests_passed = True
+
+        target_language = load_project_language(project_dir) or detect_language(args.prompt)
+        if target_language in {"c", "cpp"}:
+            makefile_path = os.path.join(project_dir, "Makefile")
+            if not os.path.exists(makefile_path):
+                print("No Makefile found. Generating a default C/C++ Makefile...")
+                try:
+                    generate_makefile(project_dir, project_name, target_language)
+                except Exception as e:
+                    print(f"Failed to generate Makefile: {e}")
+
+            print(f"Compiling C/C++ project in '{project_dir}'...")
+            compile_success, compile_output = compile_project(project_dir)
+            print(compile_output)
+            test_success = True
+            test_output = ""
+            if compile_success:
+                test_dir = os.path.join(project_dir, "tests")
+                if os.path.isdir(test_dir):
+                    print(f"Running C/C++ tests in '{project_dir}'...")
+                    test_success, test_output = run_c_tests(project_dir)
+                    print(test_output)
+
+            if not compile_success or not test_success:
+                print("Verification initially failed. Running automated C/C++ debugging & bug-fixing pass...")
+                dbg_ok, dbg_out = debug_c_project(project_dir)
+                print(dbg_out)
+                if dbg_ok:
+                    print("Verification successful after automated C/C++ debugging!")
+                    tests_passed = True
+                else:
+                    print("Verification failed: C/C++ debugging could not resolve all errors.")
+                    tests_passed = False
             else:
-                print("Verification failed: Some tests did not pass.")
-                tests_passed = False
+                print("Verification successful: All C/C++ tests passed!")
+                tests_passed = True
         else:
-            print("No test suite found. Skipping verification.")
-            
+            test_dir = os.path.join(project_dir, "tests")
+            if os.path.exists(test_dir):
+                print(f"Running pytest suite in '{project_dir}'...")
+                env = os.environ.copy()
+                env["PYTHONPATH"] = project_dir
+                
+                result = subprocess.run(
+                    [sys.executable, "-m", "pytest", project_dir],
+                    env=env,
+                    capture_output=True,
+                    text=True
+                )
+                print(result.stdout)
+                if result.stderr:
+                    print(result.stderr)
+                    
+                if result.returncode == 0:
+                    print("Verification successful: All tests passed!")
+                    tests_passed = True
+                else:
+                    print("Verification failed: Some tests did not pass.")
+                    tests_passed = False
+            else:
+                print("No test suite found. Skipping verification.")
+
         # Post-pipeline deployment
         if tests_passed:
             print("\n=== Stage: Automated Deployment (Git Push) ===")

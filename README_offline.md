@@ -44,7 +44,9 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 ## 3. Running the Pipeline
 
-Once Ollama is running and configured, run the framework using the local virtual environment:
+Once Ollama is running and configured, run the framework using the local virtual environment.
+
+The framework supports both Python and C/C++ projects. For C/C++ projects, the bot will auto-detect the target language, generate or use a Makefile, compile the code, and run C/C++ tests if a `tests/` directory is present.
 
 ### For Windows PowerShell:
 ```powershell

@@ -33,8 +33,8 @@ impact_task:
 
 design_task:
   description: >
-    Review the SRS.md and the Requirement_Delta_Report.md (if any).
-    Generate or update the Design.md file.
+    Review the SRS.md at {reports_dir}/SRS.md and the Requirement_Delta_Report.md at {delta_path} (if any).
+    Generate or update the Design.md file at {reports_dir}/Design.md.
     Outline:
     1. System Architecture overview.
     2. Module and Class Specifications (class names, methods, signatures, docstrings).
@@ -46,7 +46,7 @@ design_task:
 
 code_task:
   description: >
-    Write, modify, or extend Python source code based on Design.md at {reports_dir}/Design.md and the requirement delta at {delta_report_path}.
+    Write, modify, or extend source code based on Design.md at {reports_dir}/Design.md and the requirement delta at {delta_report_path}.
     The project codebase is located at: {project_dir}.
     Use the static dependency graph at {dependency_graph_path} and reuse guidance at {reuse_report_path} to minimize changes.
     Follow these rules strictly:
@@ -54,19 +54,22 @@ code_task:
     2. Prefer reusing existing modules, classes, and functions when they satisfy new or modified requirements.
     3. Only write new files or modify files marked for modification by the requirement delta and reuse reports. Do NOT overwrite unchanged files.
     4. Preserve architecture, naming conventions, imports, and coding style.
-    5. You MUST use the `write_project_file` tool to save each new or modified Python source file to `{project_dir}`. Do NOT just present the code in your final answer; you MUST write it to the filesystem.
+    5. If the target project is C or C++, produce clean C/C++ source files, headers, and an appropriate Makefile. Otherwise use Python conventions.
+    6. You MUST use the `write_project_file` tool to save each new or modified source file to `{project_dir}`. Do NOT just present the code in your final answer; you MUST write it to the filesystem.
   expected_output: >
-    Complete, functional, and syntactically correct Python files in the {project_dir} directory.
+    Complete, functional, and syntactically correct source files in the {project_dir} directory.
 
 testing_task:
   description: >
     Review the source code files in {project_dir} and the requirements in SRS.md at {reports_dir}/SRS.md.
-    Generate or update a pytest suite inside the directory: {project_dir}/tests.
-    Create/update files like `test_*.py`. Make sure the tests cover all functional requirements, boundary conditions, edge cases, and exception handling.
-    Ensure test files import modules correctly and run independently.
+    Generate or update a test suite inside the directory: {project_dir}/tests.
+    For Python projects, create/update PyTest files like `test_*.py`.
+    For C/C++ projects, create/update a single `test_runner.c` or `test_runner.cpp` file that exercises public APIs with `assert()`.
+    Make sure tests cover functional requirements, boundary conditions, edge cases, and error handling.
+    Ensure test files import or include modules correctly and run independently.
     You MUST use the `write_project_file` tool to save the test files to `{project_dir}/tests`. Do NOT just present the test code in your final answer; you MUST write it to the filesystem.
   expected_output: >
-    A complete pytest suite consisting of test_*.py files verifying the application correctness.
+    A complete, language-appropriate test suite verifying the application correctness.
 
 documentation_task:
   description: >
