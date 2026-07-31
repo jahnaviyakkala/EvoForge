@@ -6,20 +6,22 @@ No reusable classes or functions were detected in the existing project.
 
 ## Reuse Decisions
 
-- [NEW] `[NEW] The system shall provide a high-performance, standards-compliant Scientific_calc component written in C.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] This document defines functional specifications, memory management rules, compiler requirements, and test harness criteria.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] **Target Users**: Systems programmers, software engineers, and automated build pipelines.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] **Compilation Tools**: GCC / G++ / Clang toolchains supporting GNU/POSIX Makefile builds.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] **Dependencies**: Standard C runtime (`libc` / `libm`) or C++ Standard Library (`<iostream>`, `<cassert>`).` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall provide primary operations for the Scientific_calc data module.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall support inspection, resource initialization, and clean deallocation routines.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall include an interactive CLI executable (`main`) accepting dynamic user inputs.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall safely handle invalid operations, boundary parameters, and null pointer inputs.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall guarantee dynamic memory allocation (`malloc` / `realloc` / `new`) checks and zero memory leaks upon destruction.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The implementation shall achieve zero unnecessary heap reallocations and minimal cache overhead.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] Code shall be organized into strict header (`.h`/`.hpp`) and source (`.c`/`.cpp`) files using standard `#ifndef` guards.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The project shall compile without warnings under standard GCC/G++ error reporting flags.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall generate a valid Makefile supporting `make`, `make test`, and `make clean` targets.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall include an automated assertion-based test runner (`tests/test_runner`).` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The application shall provide command-line prompts for user choices and formatted console outputs.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The project shall contain a complete `README.md` and `User_Manual.md` detailing build and execution procedures.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall provide a fully functional, robust, and extensible Calculator application in Python.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] This specification outlines the functional features, user interactions, input/output validation, error handling, and quality constraints.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] **Target Users**: End-users, software developers, and automated test runners.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] **Execution Environment**: Python 3.8+ command-line environment.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] **Dependencies**: Standard Python library and Pytest testing framework.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall implement core operational routines for Calculator.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall support dynamic execution via an interactive user menu interface.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall output accurate computation and status results for all valid inputs.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall validate user inputs prior to processing and reject invalid data types or out-of-bound values.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall handle boundary conditions (e.g. division by zero, empty collections, negative parameters) without raising unhandled exceptions.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall display informative error messages when input validation fails.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall allow users to execute multiple operations sequentially until opting to exit.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall ensure clean initialization and termination of application resources.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] Operational routines shall execute synchronously within 100 milliseconds for standard operations.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall maintain 100% stability under invalid inputs by trapping exceptions internally.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] Source code shall adhere strictly to Python PEP 8 formatting guidelines, type hinting, and modular function decomposition.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall include an automated Pytest test suite (`tests/test_calculator.py`) covering positive, negative, and edge-case execution paths.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The user interface shall operate as a clean, text-based interactive command-line interface (CLI).` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] All primary documentation (`README.md`, `User_Manual.md`) shall include setup, execution, and test commands.` requires new implementation. No strong reusable component found.

@@ -1,26 +1,22 @@
 # Design Document
 
 ## Architecture Overview
-The project is a C library providing a Scientific_calc module.
+The project is organized as a modular Python application centered on the `calculator` module.
 
 ## Module Specifications
-- `scientific_calc.h`: Public API declarations for the scientific_calc component.
-- `scientific_calc.c`: Core implementation of scientific_calc operations.
-- `main.c`: Example usage and demonstration program.
-- `tests/test_runner.c`: Automated test harness validating scientific_calc functionality.
-
-## Data Model
-- `Scientific_calc` struct storing module state and resources.
+- `calculator.py`: Core domain logic and operations.
+- `main.py`: Application entry point and demonstration CLI.
+- `tests/test_calculator.py`: Pytest suite for automated testing.
 
 ## Sequence Flow
 ```mermaid
 sequenceDiagram
     participant User
     participant Main
-    participant Scientific_calcModule
+    participant CalculatorService
 
-    User->>Main: start program
-    Main->>Scientific_calcModule: init
-    Main->>Scientific_calcModule: operate
-    Main->>Scientific_calcModule: destroy
+    User->>Main: execute program
+    Main->>CalculatorService: perform operation
+    CalculatorService-->>Main: return result
+    Main-->>User: display output
 ```

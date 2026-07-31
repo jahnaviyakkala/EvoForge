@@ -1,28 +1,32 @@
 # Software Requirements Specification (SRS)
 ## 1. Document Overview & System Purpose
-- [NEW] The system shall provide a high-performance, standards-compliant Scientific_calc component written in C.
-- [NEW] This document defines functional specifications, memory management rules, compiler requirements, and test harness criteria.
+- [NEW] The system shall provide a fully functional, robust, and extensible Calculator application in Python.
+- [NEW] This specification outlines the functional features, user interactions, input/output validation, error handling, and quality constraints.
 ## 2. User Personas & System Scope
-- [NEW] **Target Users**: Systems programmers, software engineers, and automated build pipelines.
-- [NEW] **Compilation Tools**: GCC / G++ / Clang toolchains supporting GNU/POSIX Makefile builds.
-- [NEW] **Dependencies**: Standard C runtime (`libc` / `libm`) or C++ Standard Library (`<iostream>`, `<cassert>`).
+- [NEW] **Target Users**: End-users, software developers, and automated test runners.
+- [NEW] **Execution Environment**: Python 3.8+ command-line environment.
+- [NEW] **Dependencies**: Standard Python library and Pytest testing framework.
 ## 3. Functional Requirements
-## 3.1 Core Module Operations
-- [NEW] The system shall provide primary operations for the Scientific_calc data module.
-- [NEW] The system shall support inspection, resource initialization, and clean deallocation routines.
-- [NEW] The system shall include an interactive CLI executable (`main`) accepting dynamic user inputs.
-## 3.2 Boundary Error & Memory Management
-- [NEW] The system shall safely handle invalid operations, boundary parameters, and null pointer inputs.
-- [NEW] The system shall guarantee dynamic memory allocation (`malloc` / `realloc` / `new`) checks and zero memory leaks upon destruction.
+## 3.1 Primary Operations & Business Logic
+- [NEW] The system shall implement core operational routines for Calculator.
+- [NEW] The system shall support dynamic execution via an interactive user menu interface.
+- [NEW] The system shall output accurate computation and status results for all valid inputs.
+## 3.2 Input Validation & Boundary Error Handling
+- [NEW] The system shall validate user inputs prior to processing and reject invalid data types or out-of-bound values.
+- [NEW] The system shall handle boundary conditions (e.g. division by zero, empty collections, negative parameters) without raising unhandled exceptions.
+- [NEW] The system shall display informative error messages when input validation fails.
+## 3.3 State Management & Execution Flow
+- [NEW] The system shall allow users to execute multiple operations sequentially until opting to exit.
+- [NEW] The system shall ensure clean initialization and termination of application resources.
 ## 4. Non-Functional Requirements
-## 4.1 Performance & Memory Efficiency
-- [NEW] The implementation shall achieve zero unnecessary heap reallocations and minimal cache overhead.
-## 4.2 Standards Compliance & Architecture
-- [NEW] Code shall be organized into strict header (`.h`/`.hpp`) and source (`.c`/`.cpp`) files using standard `#ifndef` guards.
-- [NEW] The project shall compile without warnings under standard GCC/G++ error reporting flags.
-## 4.3 Build System & Automated Verification
-- [NEW] The system shall generate a valid Makefile supporting `make`, `make test`, and `make clean` targets.
-- [NEW] The system shall include an automated assertion-based test runner (`tests/test_runner`).
-## 5. Interface Specifications
-- [NEW] The application shall provide command-line prompts for user choices and formatted console outputs.
-- [NEW] The project shall contain a complete `README.md` and `User_Manual.md` detailing build and execution procedures.
+## 4.1 Performance & Latency
+- [NEW] Operational routines shall execute synchronously within 100 milliseconds for standard operations.
+## 4.2 Reliability & Fault Tolerance
+- [NEW] The system shall maintain 100% stability under invalid inputs by trapping exceptions internally.
+## 4.3 Maintainability & Code Quality
+- [NEW] Source code shall adhere strictly to Python PEP 8 formatting guidelines, type hinting, and modular function decomposition.
+## 4.4 Automated Testing & Verification
+- [NEW] The system shall include an automated Pytest test suite (`tests/test_calculator.py`) covering positive, negative, and edge-case execution paths.
+## 5. Interface & Operational Constraints
+- [NEW] The user interface shall operate as a clean, text-based interactive command-line interface (CLI).
+- [NEW] All primary documentation (`README.md`, `User_Manual.md`) shall include setup, execution, and test commands.

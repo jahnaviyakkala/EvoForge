@@ -1,21 +1,17 @@
 # scientific_calc
 
-A C implementation of scientific_calc with build and test support.
+A Python implementation of calculator with automated Pytest unit testing.
 
-## Build
+## Requirements
+- Python 3.8+
+- Pytest
 
+## Execution
 ```sh
-make
+python main.py
 ```
 
-## Run
-
+## Testing
 ```sh
-./scientific_calc
-```
-
-## Test
-
-```sh
-make test
+pytest
 ```
