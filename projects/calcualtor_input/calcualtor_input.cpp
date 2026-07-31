@@ -1,42 +1,34 @@
 #include "calcualtor_input.hpp"
-#include <cstdlib>
-#include <new>
+#include <cmath>
 
-void calcualtor_input_init(Calcualtor_input &s, std::size_t capacity) {
-    s.data = static_cast<int*>(std::malloc(capacity * sizeof(int)));
-    s.size = 0;
-    s.capacity = s.data ? capacity : 0;
-}
-
-void calcualtor_input_push(Calcualtor_input &s, int value) {
-    if (s.size >= s.capacity) {
-        std::size_t new_cap = s.capacity == 0 ? 4 : s.capacity * 2;
-        int *new_data = static_cast<int*>(std::realloc(s.data, new_cap * sizeof(int)));
-        if (!new_data) return;
-        s.data = new_data;
-        s.capacity = new_cap;
-    }
-    s.data[s.size++] = value;
-}
-
-bool calcualtor_input_pop(Calcualtor_input &s, int &value) {
-    if (s.size == 0) return false;
-    value = s.data[--s.size];
+double calcualtor_input_add(double a, double b) { return a + b; }
+double calcualtor_input_subtract(double a, double b) { return a - b; }
+double calcualtor_input_multiply(double a, double b) { return a * b; }
+bool calcualtor_input_divide(double a, double b, double &result) {
+    if (b == 0.0) return false;
+    result = a / b;
     return true;
 }
-
-bool calcualtor_input_peek(const Calcualtor_input &s, int &value) {
-    if (s.size == 0) return false;
-    value = s.data[s.size - 1];
+bool calcualtor_input_power(double base, double exponent, double &result) {
+    result = std::pow(base, exponent);
+    return !std::isnan(result);
+}
+bool calcualtor_input_sqrt(double val, double &result) {
+    if (val < 0.0) return false;
+    result = std::sqrt(val);
     return true;
 }
-
-bool calcualtor_input_is_empty(const Calcualtor_input &s) {
-    return s.size == 0;
+bool calcualtor_input_log(double val, double &result) {
+    if (val <= 0.0) return false;
+    result = std::log(val);
+    return true;
 }
-
-void calcualtor_input_destroy(Calcualtor_input &s) {
-    std::free(s.data);
-    s.data = nullptr;
-    s.size = s.capacity = 0;
+double calcualtor_input_sin(double rad) { return std::sin(rad); }
+double calcualtor_input_cos(double rad) { return std::cos(rad); }
+bool calcualtor_input_factorial(int n, double &result) {
+    if (n < 0 || n > 170) return false;
+    double res = 1.0;
+    for (int i = 1; i <= n; ++i) res *= i;
+    result = res;
+    return true;
 }
