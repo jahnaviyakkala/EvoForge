@@ -1,13 +1,13 @@
 # Software Requirements Specification (SRS)
 ## Overview
-- [NEW] The system shall implement a Calculator application in Python.
+- [UNCHANGED] The system shall implement a Calculator application in Python.
 ## Functional Requirements
-- [NEW] The system shall provide primary operations for Calculator.
-- [NEW] The system shall validate user inputs and handle boundary conditions gracefully.
-- [NEW] The system shall include automated Pytest test suites covering normal and edge cases.
+- [UNCHANGED] The system shall provide primary operations for Calculator.
+- [UNCHANGED] The system shall validate user inputs and handle boundary conditions gracefully.
+- [UNCHANGED] The system shall include automated Pytest test suites covering normal and edge cases.
 ## Non-Functional Requirements
-- [NEW] Code shall adhere to PEP 8 standards and maintain high readability.
-- [NEW] Documentation shall include a clear README.md and User_Manual.md.
+- [UNCHANGED] Code shall adhere to PEP 8 standards and maintain high readability.
+- [UNCHANGED] Documentation shall include a clear README.md and User_Manual.md.
 ## Placeholder output for requirement_task
 - [REMOVED] Description:
 - [REMOVED] Analyze the new user requirements prompt: "build a calc in python". Compare these new requirements with the existing SRS: ""
