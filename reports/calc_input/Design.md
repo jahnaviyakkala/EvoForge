@@ -1,7 +1,26 @@
-# Placeholder output for design_task
+# Design Document
 
-Description:
-Review the SRS.md at /home/pss/project/reports/calc_input/SRS.md and the Requirement_Delta_Report.md at /home/pss/project/reports/calc_input/Requirement_Delta_Report.md (if any). Generate or update the Design.md file at /home/pss/project/reports/calc_input/Design.md. Outline: 1. System Architecture overview. 2. Module and Class Specifications (class names, methods, signatures, docstrings). 3. Structural & Sequence flow (represented using Mermaid diagrams). Keep it strictly synchronized with the functional requirements and impact directions. Do NOT wrap the output in markdown code blocks or add conversational preamble. Output ONLY the raw markdown content of the Design.md file.
+## Architecture Overview
+The project is a C++ library providing a Calc_input module.
 
+## Module Specifications
+- `calc_input.hpp`: Public API declarations for the calc_input component.
+- `calc_input.cpp`: Core implementation of calc_input operations.
+- `main.cpp`: Example usage and demonstration program.
+- `tests/test_runner.cpp`: Automated test harness validating calc_input functionality.
 
-Note: Crew/agent execution was skipped because the crew library is unavailable or incompatible, and local agent execution failed.
+## Data Model
+- `Calc_input` struct storing module state and resources.
+
+## Sequence Flow
+```mermaid
+sequenceDiagram
+    participant User
+    participant Main
+    participant Calc_inputModule
+
+    User->>Main: start program
+    Main->>Calc_inputModule: init
+    Main->>Calc_inputModule: operate
+    Main->>Calc_inputModule: destroy
+```
