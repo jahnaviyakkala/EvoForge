@@ -10,7 +10,7 @@
 
 ### 1. Document Overview & System Purpose
 
-- [NEW] The system shall provide a high-performance, standards-compliant Scientific_calc component written in C++.
+- [NEW] The system shall provide a high-performance, standards-compliant Scientific_calc component written in C.
 - [NEW] This document defines functional specifications, memory management rules, compiler requirements, and test harness criteria.
 
 ### 2. User Personas & System Scope

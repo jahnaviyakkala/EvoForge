@@ -1,6 +1,6 @@
 # User Manual
 
-This project provides a C++ scientific_calc library and an example application.
+This project provides a C scientific_calc library and an example application.
 
 ## Build Instructions
 1. Run `make` to compile the executable.

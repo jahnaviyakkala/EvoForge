@@ -2,19 +2,19 @@
 
 ## Changed Source Modules
 
-- Code.cpp
-- Compilation.cpp
-- Dependencies.cpp
-- Target.cpp
-- The.cpp
-- This.cpp
+- Code.c
+- Compilation.c
+- Dependencies.c
+- Target.c
+- The.c
+- This.c
 
 ## Impacted Test Files
 
-- Code.cpp -> no direct tests found
-- Compilation.cpp -> no direct tests found
-- Dependencies.cpp -> no direct tests found
-- Target.cpp -> no direct tests found
-- The.cpp -> no direct tests found
-- This.cpp -> no direct tests found
+- Code.c -> no direct tests found
+- Compilation.c -> no direct tests found
+- Dependencies.c -> no direct tests found
+- Target.c -> no direct tests found
+- The.c -> no direct tests found
+- This.c -> no direct tests found
 No impacted tests could be automatically mapped from the changed modules.

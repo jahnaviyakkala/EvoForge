@@ -1,6 +1,6 @@
 # scientific_calc
 
-A C++ implementation of scientific_calc with build and test support.
+A C implementation of scientific_calc with build and test support.
 
 ## Build
 

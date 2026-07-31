@@ -6,7 +6,7 @@ No reusable classes or functions were detected in the existing project.
 
 ## Reuse Decisions
 
-- [NEW] `[NEW] The system shall provide a high-performance, standards-compliant Scientific_calc component written in C++.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall provide a high-performance, standards-compliant Scientific_calc component written in C.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] This document defines functional specifications, memory management rules, compiler requirements, and test harness criteria.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] **Target Users**: Systems programmers, software engineers, and automated build pipelines.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] **Compilation Tools**: GCC / G++ / Clang toolchains supporting GNU/POSIX Makefile builds.` requires new implementation. No strong reusable component found.
