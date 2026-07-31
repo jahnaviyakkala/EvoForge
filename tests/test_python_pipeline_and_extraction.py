@@ -77,3 +77,64 @@ def test_python_pipeline_fallback():
             shutil.rmtree(manager.project_dir)
         if os.path.exists(manager.reports_dir):
             shutil.rmtree(manager.reports_dir)
+
+
+def test_syntax_validation_and_self_correction():
+    manager = SDLCCrewManager("temp_val_proj")
+    
+    # 1. Valid python code
+    valid_py_map = {"app.py": "def add(a, b):\n    return a + b\n"}
+    ok, msg = manager._validate_syntax(valid_py_map, "python")
+    assert ok is True
+    assert "passed" in msg
+
+    # 2. Invalid python code (syntax error)
+    invalid_py_map = {"app.py": "def add(a, b)\n    return a + b\n"}
+    ok, msg = manager._validate_syntax(invalid_py_map, "python")
+    assert ok is False
+    assert "Python SyntaxError" in msg
+
+    # 3. Valid C code
+    valid_c_map = {
+        "calc.h": "#ifndef CALC_H\n#define CALC_H\nint add(int a, int b);\n#endif\n",
+        "calc.c": '#include "calc.h"\nint add(int a, int b) { return a + b; }\n',
+        "main.c": '#include <stdio.h>\n#include "calc.h"\nint main() { printf("%d", add(2, 3)); return 0; }\n'
+    }
+    ok, msg = manager._validate_syntax(valid_c_map, "c")
+    assert ok is True
+
+    # 4. Invalid C code (missing semicolon)
+    invalid_c_map = {
+        "calc.h": "#ifndef CALC_H\n#define CALC_H\nint add(int a, int b);\n#endif\n",
+        "calc.c": '#include "calc.h"\nint add(int a, int b) { return a + b }\n',
+        "main.c": '#include <stdio.h>\n#include "calc.h"\nint main() { printf("%d", add(2, 3)); return 0; }\n'
+    }
+    ok, msg = manager._validate_syntax(invalid_c_map, "c")
+    assert ok is False
+    assert "Compiler Errors" in msg or "Compiler Error Output" in msg
+
+
+def test_semantic_evaluation_tool(tmp_path):
+    from tools.semantic_evaluation import evaluate_project_semantics, generate_semantic_evaluation_report
+    
+    srs = """
+# SRS
+## 3. Functional Requirements
+- [NEW] The system shall add two numbers.
+- [NEW] The system shall validate inputs and raise ValueError on invalid numbers.
+"""
+    proj_dir = tmp_path / "proj"
+    proj_dir.mkdir()
+    code_file = proj_dir / "calc.py"
+    code_file.write_text("def add(a, b):\n    if not isinstance(a, (int, float)):\n        raise ValueError('Invalid')\n    return a + b\n")
+
+    res = evaluate_project_semantics(str(proj_dir), srs, "python")
+    assert res["is_semantically_valid"] is True
+    assert res["score"] >= 0.7
+
+    rep = generate_semantic_evaluation_report(res, str(tmp_path / "reports"))
+    assert os.path.exists(rep)
+    with open(rep) as f:
+        txt = f.read()
+        assert "Semantic Evaluation Report" in txt
+        assert "PASSED" in txt

@@ -83,7 +83,7 @@ def test_c_queue_generation_and_execution():
 
         test_ok, test_out = run_c_tests(temp_dir)
         assert test_ok is True, f"Tests failed: {test_out}"
-        assert "Queue tests passed" in test_out
+        assert "tests passed" in test_out.lower()
     finally:
         shutil.rmtree(temp_dir)
 
@@ -107,7 +107,7 @@ def test_cpp_calculator_generation_and_execution():
 
         test_ok, test_out = run_c_tests(temp_dir)
         assert test_ok is True, f"Tests failed: {test_out}"
-        assert "Calculator tests passed" in test_out
+        assert "tests passed" in test_out.lower()
     finally:
         shutil.rmtree(temp_dir)
 

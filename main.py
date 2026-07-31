@@ -29,7 +29,7 @@ except Exception:
     HAS_CREW = False
 
 from database.db_manager import DBManager
-from tools.language_tools import detect_language, load_project_language
+from tools.language_tools import detect_language, load_project_language, has_explicit_language
 from tools.build_tools import compile_project, run_c_tests, generate_makefile, debug_c_project
 
 
@@ -183,7 +183,7 @@ def execute_pipeline(project_name: str, mode: str, prompt: str):
     """
     project_name = project_name.lower().replace(" ", "_")
     target_lang = detect_language(prompt)
-    
+
     ui.print_triage_result(project_name=project_name, mode=mode, language=target_lang)
 
     manager = SDLCCrewManager(project_name=project_name)
@@ -194,7 +194,8 @@ def execute_pipeline(project_name: str, mode: str, prompt: str):
         ui.print_header("EVOLVING EXISTING SDLC PROJECT", f"Project: {project_name}")
         manager.run_pipeline(prompt=prompt, mode="evolve")
 
-    # Automated Verification Stage
+    # Automated Verification Stage — use language resolved by the pipeline manager
+    # so an explicit "python" prompt is never overridden by leftover C/C++ files on disk.
     ui.print_header("STAGE: AUTOMATED VERIFICATION (TESTS)", f"Project: {project_name}")
     project_dir = os.path.join("projects", project_name)
     tests_passed = True
@@ -205,7 +206,9 @@ def execute_pipeline(project_name: str, mode: str, prompt: str):
     debug_applied = False
     debug_success = False
 
-    language = load_project_language(project_dir) or detect_language(prompt)
+    # If the prompt explicitly names a language, honour it; otherwise use what the
+    # pipeline persisted (which already ran has_explicit_language logic).
+    language = manager.project_language
     if language in {"c", "cpp"}:
         makefile_path = os.path.join(project_dir, "Makefile")
         if not os.path.exists(makefile_path):

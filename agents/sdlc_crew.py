@@ -19,11 +19,12 @@ from tools.project_tools import (
     analyze_python_ast
 )
 from tools.build_tools import generate_makefile
-from tools.language_tools import detect_language, load_project_language, save_project_language, get_source_extensions
+from tools.language_tools import detect_language, load_project_language, save_project_language, get_source_extensions, has_explicit_language
 from tools.requirement_tools import classify_requirements
 from tools.static_analysis import build_dependency_graph, dependency_graph_to_json
 from tools.reuse_tools import generate_reuse_decision_report
 from tools.impact_tools import generate_test_impact_report
+from tools.semantic_evaluation import evaluate_project_semantics, generate_semantic_evaluation_report
 import tools.cli_ui as ui
 
 def clean_markdown_content(text: str) -> str:
@@ -73,19 +74,15 @@ class SDLCCrewManager:
         existing_srs = self._load_existing_srs()
         prompt_language = detect_language(prompt)
         saved_language = load_project_language(self.project_dir)
-        self.project_language = saved_language or prompt_language
-        if saved_language and saved_language != prompt_language:
-            if not self._project_has_source_files():
+        if has_explicit_language(prompt):
+            self.project_language = prompt_language
+            if saved_language and saved_language != prompt_language:
                 ui.print_stage_warning(
                     "Language Override",
-                    f"Prompt indicates '{prompt_language}' but existing project language is '{saved_language}'. Overriding language based on prompt."
+                    f"Prompt explicitly specifies '{prompt_language}'. Overriding previous project language '{saved_language}'."
                 )
-                self.project_language = prompt_language
-            else:
-                ui.print_stage_warning(
-                    "Language Preserved",
-                    f"Existing project language '{saved_language}' will be preserved for this run."
-                )
+        else:
+            self.project_language = saved_language or prompt_language
         save_project_language(self.project_dir, self.project_language)
 
         # STAGE 1: Requirements Analysis
@@ -159,24 +156,22 @@ class SDLCCrewManager:
             return read_file(srs_path)
         return ""
 
-    def _extract_and_write_files(self, text: str) -> list[str]:
-        """Extract code blocks or file markers from LLM response and write to project_dir."""
+    def _extract_file_map(self, text: str) -> dict[str, str]:
+        """Extract relative_file_path -> code_content mapping from LLM output without writing to disk."""
         if not text:
-            return []
+            return {}
 
-        written = []
+        file_map = {}
         # Pattern 1: --- FILE: rel/path --- or ### File: rel/path or // File: rel/path
         file_block_pattern = re.compile(
             r"(?:---|###|//|\#)\s*(?:FILE|File):\s*`?([^\n`\s]+)`?\s*(?:---|###)?\s*\n```(?:[a-zA-Z0-9_\+\-]+)?\s*\n(.*?)\n```",
             re.DOTALL
         )
         for rel_path, code in file_block_pattern.findall(text):
-            target_path = os.path.join(self.project_dir, rel_path.strip())
-            write_file(target_path, code.strip() + "\n")
-            written.append(rel_path.strip())
+            file_map[rel_path.strip()] = code.strip() + "\n"
 
-        if written:
-            return written
+        if file_map:
+            return file_map
 
         # Pattern 2: ```python filename=rel_path
         fence_file_pattern = re.compile(
@@ -185,12 +180,10 @@ class SDLCCrewManager:
         )
         for rel_path, code in fence_file_pattern.findall(text):
             if "/" in rel_path or "." in rel_path:
-                target_path = os.path.join(self.project_dir, rel_path.strip())
-                write_file(target_path, code.strip() + "\n")
-                written.append(rel_path.strip())
+                file_map[rel_path.strip()] = code.strip() + "\n"
 
-        if written:
-            return written
+        if file_map:
+            return file_map
 
         # Pattern 3: Single code block with comment header `# filename.py` or `// filename.c`
         code_block_pattern = re.compile(
@@ -203,14 +196,83 @@ class SDLCCrewManager:
             header_match = re.match(r"^\s*(?:#|//|/\*)\s*(?:[Ff]ile:\s*)?([a-zA-Z0-9_\-/\.]+\.(?:py|c|cpp|h|hpp|md|txt|json))\b", first_line)
             if header_match:
                 rel_path = header_match.group(1).strip()
-                target_path = os.path.join(self.project_dir, rel_path)
-                write_file(target_path, code + "\n")
-                written.append(rel_path)
+                file_map[rel_path] = code + "\n"
 
+        return file_map
+
+    def _validate_syntax(self, file_map: dict[str, str], lang: str) -> tuple[bool, str]:
+        """Validate syntax for Python (ast.parse) or C/C++ (compile check) and evaluate semantic coverage. Returns (is_valid, error_msg)."""
+        if not file_map:
+            return False, "No code files were extracted from model output."
+
+        # 1. Python Syntax Validation
+        if lang == "python":
+            import ast
+            for rel_path, code in file_map.items():
+                if rel_path.endswith(".py"):
+                    try:
+                        ast.parse(code, filename=rel_path)
+                    except SyntaxError as se:
+                        return False, f"Python SyntaxError in '{rel_path}' at line {se.lineno}: {se.msg}\nLine: {se.text}"
+
+        # 2. C/C++ Syntax Validation
+        elif lang in {"c", "cpp"}:
+            import tempfile, shutil
+            from tools.build_tools import compile_project, parse_c_compiler_errors, generate_makefile
+
+            temp_dir = tempfile.mkdtemp()
+            try:
+                for rel_path, code in file_map.items():
+                    full_p = os.path.join(temp_dir, rel_path)
+                    os.makedirs(os.path.dirname(full_p), exist_ok=True)
+                    write_file(full_p, code)
+
+                proj_name = "syntax_val"
+                generate_makefile(temp_dir, proj_name, lang)
+                comp_ok, comp_out = compile_project(temp_dir)
+                if not comp_ok:
+                    errors = parse_c_compiler_errors(comp_out)
+                    if errors:
+                        err_lines = [f"{e['file']}:{e['line']}: {e['severity']}: {e['message']}" for e in errors]
+                        return False, "C/C++ Compiler Errors:\n" + "\n".join(err_lines)
+                    return False, f"C/C++ Compiler Error Output:\n{comp_out.strip()}"
+            finally:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+        # 3. Semantic Requirement Evaluation
+        srs_path = os.path.join(self.reports_dir, "SRS.md")
+        if os.path.exists(srs_path):
+            srs_content = read_file(srs_path)
+            import tempfile, shutil
+            eval_temp = tempfile.mkdtemp()
+            try:
+                for rel_path, code in file_map.items():
+                    full_p = os.path.join(eval_temp, rel_path)
+                    os.makedirs(os.path.dirname(full_p), exist_ok=True)
+                    write_file(full_p, code)
+                eval_res = evaluate_project_semantics(eval_temp, srs_content, lang)
+                generate_semantic_evaluation_report(eval_res, self.reports_dir)
+
+                if not eval_res.get("is_semantically_valid"):
+                    fb_str = "\n".join([f"- {fb}" for fb in eval_res.get("feedback", [])])
+                    return False, f"Semantic Evaluation Failed (Score: {eval_res.get('score')}/1.0):\n{fb_str}"
+            finally:
+                shutil.rmtree(eval_temp, ignore_errors=True)
+
+        return True, "Syntax & Semantic validation passed."
+
+    def _extract_and_write_files(self, text: str) -> list[str]:
+        """Extract code blocks or file markers from LLM response and write to project_dir."""
+        file_map = self._extract_file_map(text)
+        written = []
+        for rel_path, code in file_map.items():
+            target_path = os.path.join(self.project_dir, rel_path)
+            write_file(target_path, code)
+            written.append(rel_path)
         return written
 
     def _run_single_stage(self, agent_wrapper: BaseAgent, task_name: str, task_vars: dict, output_file=None, tools=None):
-        """Run a single agent task. Cleans LLM output, extracts code files, or triggers fallback."""
+        """Run a single agent task with syntax validation and self-correction before saving code files."""
         agent = None
         description = task_vars.get("prompt", f"{task_name} (no description)")
         expected = None
@@ -224,9 +286,65 @@ class SDLCCrewManager:
                 print(f"Agent wrapper preparation failed: {e}")
                 agent = None
 
-        result_text = None
+        lang = getattr(self, 'project_language', 'python')
 
-        # 1. Try local execution if CrewAI is unavailable
+        # Code & Testing Stage Validation and Self-Correction Loop
+        if task_name in {"code_task", "testing_task"}:
+            max_attempts = 3
+            current_prompt = description
+
+            for attempt in range(1, max_attempts + 1):
+                raw_out = None
+                if agent is not None and hasattr(agent, 'run') and not HAS_CREW:
+                    try:
+                        raw_out = agent.run(current_prompt)
+                    except Exception as e:
+                        print(f"Local agent attempt {attempt} failed: {e}")
+                elif HAS_CREW and agent is not None:
+                    try:
+                        task = Task(
+                            description=current_prompt,
+                            expected_output=expected or f"Output for {task_name}",
+                            agent=agent,
+                            output_file=output_file
+                        )
+                        crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=True)
+                        raw_out = str(crew.kickoff())
+                    except Exception as e:
+                        print(f"Crew attempt {attempt} failed: {e}")
+
+                if raw_out and not self._is_local_agent_failure(raw_out):
+                    cleaned_text = clean_markdown_content(raw_out)
+                    file_map = self._extract_file_map(cleaned_text)
+                    is_valid, val_msg = self._validate_syntax(file_map, lang)
+
+                    if is_valid:
+                        # SAVE ONLY AFTER SUCCESSFUL VALIDATION
+                        for rel_path, code in file_map.items():
+                            write_file(os.path.join(self.project_dir, rel_path), code)
+                        if output_file:
+                            write_file(output_file, cleaned_text)
+                        print(f"Syntax validation passed on attempt {attempt} for '{task_name}'. Saved {len(file_map)} files.")
+                        return cleaned_text
+                    else:
+                        print(f"Syntax validation failed on attempt {attempt} for '{task_name}':\n{val_msg}")
+                        # Send compiler/syntax error back to model & ask it to fix ONLY reported issues
+                        current_prompt = (
+                            f"{description}\n\n"
+                            f"CRITICAL: Syntax/Compiler Validation Failed on previous attempt!\n"
+                            f"Reported Errors:\n{val_msg}\n\n"
+                            f"Please fix ONLY the reported errors above and regenerate all code files. Use standard file blocks:\n"
+                            f"--- FILE: relative/path ---\n```\n<fixed code>\n```"
+                        )
+
+            print(f"All {max_attempts} validation attempts failed for '{task_name}'. Using deterministic fallback.")
+            if lang in {"c", "cpp"}:
+                return self._run_c_fallback(task_name, task_vars, output_file)
+            else:
+                return self._run_python_fallback(task_name, task_vars, output_file)
+
+        # Standard execution for non-code stages (requirements, design, docs)
+        result_text = None
         if agent is not None and hasattr(agent, 'run') and not HAS_CREW:
             try:
                 raw_out = agent.run(description)
@@ -234,8 +352,6 @@ class SDLCCrewManager:
                     result_text = raw_out
             except Exception as e:
                 print(f"Local agent execution failed for '{task_name}': {e}")
-
-        # 2. Try CrewAI execution if CrewAI is available
         elif HAS_CREW and agent is not None:
             try:
                 task = Task(
@@ -245,32 +361,20 @@ class SDLCCrewManager:
                     output_file=output_file
                 )
                 crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=True)
-                print(f"Running {task_name} via CrewAI...")
                 result_text = str(crew.kickoff())
             except Exception as e:
                 print(f"Crew execution failed for '{task_name}': {e}")
 
-        # 3. Clean and process result if LLM generated output
         if result_text:
             cleaned_text = clean_markdown_content(result_text)
-
             if output_file:
-                try:
-                    write_file(output_file, cleaned_text)
-                except Exception as e:
-                    print(f"Failed writing cleaned output to {output_file}: {e}")
+                write_file(output_file, cleaned_text)
+            if task_name == "documentation_task":
+                self._extract_and_write_files(result_text)
+            return cleaned_text
 
-            if task_name in {"code_task", "testing_task", "documentation_task"}:
-                extracted = self._extract_and_write_files(result_text)
-                if extracted or self._project_has_source_files():
-                    return cleaned_text
-
-            if output_file and os.path.exists(output_file):
-                return cleaned_text
-
-        # 4. Fallback execution if LLM execution produced no usable output
-        print(f"Using deterministic fallback for task '{task_name}'.")
-        if getattr(self, 'project_language', 'python') in {"c", "cpp"}:
+        print(f"Using deterministic fallback for stage '{task_name}'.")
+        if lang in {"c", "cpp"}:
             return self._run_c_fallback(task_name, task_vars, output_file)
         else:
             return self._run_python_fallback(task_name, task_vars, output_file)
@@ -344,14 +448,37 @@ class SDLCCrewManager:
         domain_title = domain.capitalize()
         return (
             f"# Software Requirements Specification (SRS)\n\n"
-            f"## Overview\nThe system shall implement a {domain_title} application in Python.\n\n"
-            "## Functional Requirements\n"
-            f"- [NEW] The system shall provide primary operations for {domain_title}.\n"
-            f"- [NEW] The system shall validate user inputs and handle boundary conditions gracefully.\n"
-            "- [NEW] The system shall include automated Pytest test suites covering normal and edge cases.\n\n"
-            "## Non-Functional Requirements\n"
-            "- [NEW] Code shall adhere to PEP 8 standards and maintain high readability.\n"
-            "- [NEW] Documentation shall include a clear README.md and User_Manual.md.\n"
+            f"## 1. Document Overview & System Purpose\n"
+            f"The system shall provide a fully functional, robust, and extensible {domain_title} application in Python.\n"
+            f"This specification outlines the functional features, user interactions, input/output validation, error handling, and quality constraints.\n\n"
+            f"## 2. User Personas & System Scope\n"
+            f"- **Target Users**: End-users, software developers, and automated test runners.\n"
+            f"- **Execution Environment**: Python 3.8+ command-line environment.\n"
+            f"- **Dependencies**: Standard Python library and Pytest testing framework.\n\n"
+            f"## 3. Functional Requirements\n"
+            f"### 3.1 Primary Operations & Business Logic\n"
+            f"- [NEW] The system shall implement core operational routines for {domain_title}.\n"
+            f"- [NEW] The system shall support dynamic execution via an interactive user menu interface.\n"
+            f"- [NEW] The system shall output accurate computation and status results for all valid inputs.\n\n"
+            f"### 3.2 Input Validation & Boundary Error Handling\n"
+            f"- [NEW] The system shall validate user inputs prior to processing and reject invalid data types or out-of-bound values.\n"
+            f"- [NEW] The system shall handle boundary conditions (e.g. division by zero, empty collections, negative parameters) without raising unhandled exceptions.\n"
+            f"- [NEW] The system shall display informative error messages when input validation fails.\n\n"
+            f"### 3.3 State Management & Execution Flow\n"
+            f"- [NEW] The system shall allow users to execute multiple operations sequentially until opting to exit.\n"
+            f"- [NEW] The system shall ensure clean initialization and termination of application resources.\n\n"
+            f"## 4. Non-Functional Requirements\n"
+            f"### 4.1 Performance & Latency\n"
+            f"- [NEW] Operational routines shall execute synchronously within 100 milliseconds for standard operations.\n\n"
+            f"### 4.2 Reliability & Fault Tolerance\n"
+            f"- [NEW] The system shall maintain 100% stability under invalid inputs by trapping exceptions internally.\n\n"
+            f"### 4.3 Maintainability & Code Quality\n"
+            f"- [NEW] Source code shall adhere strictly to Python PEP 8 formatting guidelines, type hinting, and modular function decomposition.\n\n"
+            f"### 4.4 Automated Testing & Verification\n"
+            f"- [NEW] The system shall include an automated Pytest test suite (`tests/test_{domain}.py`) covering positive, negative, and edge-case execution paths.\n\n"
+            f"## 5. Interface & Operational Constraints\n"
+            f"- [NEW] The user interface shall operate as a clean, text-based interactive command-line interface (CLI).\n"
+            f"- [NEW] All primary documentation (`README.md`, `User_Manual.md`) shall include setup, execution, and test commands.\n"
         )
 
     def _generate_python_design(self, prompt: str, domain: str) -> str:
@@ -718,304 +845,302 @@ class SDLCCrewManager:
                     return True
         return False
 
-    def _infer_c_domain(self, prompt: str) -> str:
-        prompt_lower = (prompt or getattr(self, 'current_prompt', '')).lower()
-        if "queue" in prompt_lower:
-            return "queue"
-        elif "calculator" in prompt_lower:
-            return "calculator"
-        elif "converter" in prompt_lower:
-            return "converter"
-        elif "tree" in prompt_lower or "bst" in prompt_lower:
-            return "tree"
-        elif "list" in prompt_lower or "vector" in prompt_lower:
-            return "list"
-        elif "stack" in prompt_lower:
-            return "stack"
-
-        # Check existing headers in project_dir
-        if hasattr(self, 'project_dir') and os.path.exists(self.project_dir):
-            for f in os.listdir(self.project_dir):
-                if f.endswith(('.h', '.hpp')) and f not in ('main.h', 'main.hpp'):
-                    return os.path.splitext(f)[0]
-
-        clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', self.project_name).strip('_').lower()
-        return clean_name or "module"
-
     def _generate_c_requirements(self, prompt: str) -> str:
         language_label = "C++" if self.project_language == "cpp" else "C"
-        domain = self._infer_c_domain(prompt)
-        domain_title = domain.capitalize()
+        proj_title = self.project_name.replace('_', ' ').title()
         return (
-            f"# Software Requirements Specification\n\n"
-            f"## Overview\nThe system shall implement a {domain_title} component in {language_label}.\n\n"
-            "## Functional Requirements\n"
-            f"- [NEW] The system shall provide primary operations for {domain_title}.\n"
-            f"- [NEW] The system shall support inspection and status queries for {domain_title}.\n"
-            "- [NEW] The system shall safely handle invalid operations, boundary conditions, and memory allocation.\n"
-            "- [NEW] The system shall compile using a generated Makefile and run automated unit tests.\n\n"
-            "## Non-Functional Requirements\n"
-            f"- [NEW] The implementation shall use idiomatic, standards-compliant {language_label}.\n"
-            "- [NEW] The code shall be organized into header/source files and a test runner.\n"
-            "- [NEW] The system shall include documentation describing build and usage instructions.\n"
+            f"# Software Requirements Specification (SRS)\n\n"
+            f"## 1. Document Overview & System Purpose\n"
+            f"The system shall provide a high-performance, standards-compliant {proj_title} application written in {language_label}.\n"
+            f"Specification Prompt: \"{prompt or self.project_name}\"\n\n"
+            f"## 2. User Personas & System Scope\n"
+            f"- **Target Users**: System users, software developers, and automated build pipelines.\n"
+            f"- **Compilation Tools**: GCC / G++ / Clang toolchains supporting POSIX Makefile builds.\n"
+            f"- **Dependencies**: Standard runtime libraries (`libc`/`libm` or `<iostream>`, `<cmath>`, `<cassert>`).\n\n"
+            f"## 3. Functional Requirements\n"
+            f"### 3.1 Core Application Capabilities\n"
+            f"- [NEW] The system shall execute functional logic satisfying: {prompt or self.project_name}.\n"
+            f"- [NEW] The system shall provide standard module initialization, operational execution, and resource cleanup routines.\n"
+            f"- [NEW] The system shall include an interactive CLI entry point (`main`) prompting users for runtime inputs dynamically.\n\n"
+            f"### 3.2 Boundary Error & Memory Management\n"
+            f"- [NEW] The system shall validate all boundary parameters (division by zero, null pointers, out-of-bounds inputs).\n"
+            f"- [NEW] The system shall ensure clean memory management without heap leaks or buffer overruns.\n\n"
+            f"## 4. Non-Functional Requirements\n"
+            f"### 4.1 Performance & Memory Efficiency\n"
+            f"- [NEW] High execution performance with minimal heap allocation overhead.\n\n"
+            f"### 4.2 Code Standards & Architecture\n"
+            f"- [NEW] Code structured into header files (`.h`/`.hpp`) and source files (`.c`/`.cpp`) with standard `#ifndef` include guards.\n"
+            f"- [NEW] Warning-free compilation under strict GCC/G++ compiler flags.\n\n"
+            f"### 4.3 Build System & Testing\n"
+            f"- [NEW] POSIX Makefile supporting `make`, `make test`, and `make clean` targets.\n"
+            f"- [NEW] Automated assertion test runner in `tests/test_runner`.\n\n"
+            f"## 5. Interface Specifications\n"
+            f"- [NEW] Interactive CLI menu loop accepting dynamic user input via standard input.\n"
         )
 
     def _generate_c_design(self, prompt: str) -> str:
         language_label = "C++" if self.project_language == "cpp" else "C"
-        domain = self._infer_c_domain(prompt)
+        module_name = re.sub(r'[^a-zA-Z0-9_]', '_', self.project_name).strip('_').lower()
         header_ext = "hpp" if self.project_language == "cpp" else "h"
         source_ext = "cpp" if self.project_language == "cpp" else "c"
-        struct_name = domain.capitalize()
+        proj_title = self.project_name.replace('_', ' ').title()
+
         return (
-            "# Design Document\n\n"
-            f"## Architecture Overview\nThe project is a {language_label} library providing a {struct_name} module.\n\n"
+            f"# Design Document\n\n"
+            f"## Architecture Overview\n"
+            f"The project is a {language_label} application providing the `{module_name}` module.\n\n"
             f"## Module Specifications\n"
-            f"- `{domain}.{header_ext}`: Public API declarations for the {domain} component.\n"
-            f"- `{domain}.{source_ext}`: Core implementation of {domain} operations.\n"
-            f"- `main.{source_ext}`: Example usage and demonstration program.\n"
-            f"- `tests/test_runner.{source_ext}`: Automated test harness validating {domain} functionality.\n\n"
-            f"## Data Model\n- `{struct_name}` struct storing module state and resources.\n\n"
-            "## Sequence Flow\n"
-            "```mermaid\nsequenceDiagram\n    participant User\n    participant Main\n"
-            f"    participant {struct_name}Module\n\n"
-            "    User->>Main: start program\n"
-            f"    Main->>{struct_name}Module: init\n"
-            f"    Main->>{struct_name}Module: operate\n"
-            f"    Main->>{struct_name}Module: destroy\n"
-            "```\n"
+            f"- `{module_name}.{header_ext}`: Public API declarations for the {proj_title} component.\n"
+            f"- `{module_name}.{source_ext}`: Implementation of {proj_title} core logic.\n"
+            f"- `main.{source_ext}`: Interactive command-line interface accepting dynamic user inputs.\n"
+            f"- `tests/test_runner.{source_ext}`: Automated assertion test suite.\n\n"
+            f"## Data Model\n"
+            f"- Data structures and function signatures declared in `{module_name}.{header_ext}`.\n\n"
+            f"## Sequence Flow\n"
+            f"```mermaid\nsequenceDiagram\n"
+            f"    participant User\n"
+            f"    participant Main CLI\n"
+            f"    participant {module_name.capitalize()} Engine\n\n"
+            f"    User->>Main CLI: launch program & provide input choices\n"
+            f"    Main CLI->>{module_name.capitalize()} Engine: call domain operations\n"
+            f"    {module_name.capitalize()} Engine-->>Main CLI: return results / error status\n"
+            f"    Main CLI-->>User: display output in console\n"
+            f"```\n"
         )
 
     def _generate_c_code(self, prompt: str) -> None:
-        domain = self._infer_c_domain(prompt)
+        module_name = re.sub(r'[^a-zA-Z0-9_]', '_', self.project_name).strip('_').lower()
         is_cpp = (self.project_language == "cpp")
         header_ext = "hpp" if is_cpp else "h"
         source_ext = "cpp" if is_cpp else "c"
-        header = f"{domain}.{header_ext}"
-        source = f"{domain}.{source_ext}"
+        header = f"{module_name}.{header_ext}"
+        source = f"{module_name}.{source_ext}"
         main_src = f"main.{source_ext}"
-        header_guard = f"{domain.upper()}_{header_ext.upper()}"
-        struct_name = domain.capitalize()
+        header_guard = f"{module_name.upper()}_{header_ext.upper()}"
+        
+        prompt_text = (prompt or getattr(self, 'current_prompt', '') + ' ' + self.project_name).lower()
+        is_math_calc = any(kw in prompt_text for kw in ["calc", "math", "scientific", "arithmetic", "expression", "eval"])
 
-        if domain == "queue":
+        if is_math_calc:
             if is_cpp:
                 header_content = (
-                    f"#ifndef {header_guard}\n#define {header_guard}\n\n#include <cstddef>\n\n"
-                    "struct Queue {\n    int *data;\n    std::size_t front;\n    std::size_t rear;\n    std::size_t size;\n    std::size_t capacity;\n};\n\n"
-                    "void queue_init(Queue &q, std::size_t capacity);\n"
-                    "bool queue_enqueue(Queue &q, int value);\n"
-                    "bool queue_dequeue(Queue &q, int &value);\n"
-                    "bool queue_peek(const Queue &q, int &value);\n"
-                    "bool queue_is_empty(const Queue &q);\n"
-                    "void queue_destroy(Queue &q);\n\n#endif\n"
+                    f"#ifndef {header_guard}\n#define {header_guard}\n\n#include <cmath>\n\n"
+                    f"double {module_name}_add(double a, double b);\n"
+                    f"double {module_name}_subtract(double a, double b);\n"
+                    f"double {module_name}_multiply(double a, double b);\n"
+                    f"bool {module_name}_divide(double a, double b, double &result);\n"
+                    f"bool {module_name}_power(double base, double exponent, double &result);\n"
+                    f"bool {module_name}_sqrt(double val, double &result);\n"
+                    f"bool {module_name}_log(double val, double &result);\n"
+                    f"double {module_name}_sin(double rad);\n"
+                    f"double {module_name}_cos(double rad);\n"
+                    f"bool {module_name}_factorial(int n, double &result);\n\n#endif\n"
                 )
                 source_content = (
-                    f"#include \"{header}\"\n#include <cstdlib>\n#include <new>\n\n"
-                    "void queue_init(Queue &q, std::size_t capacity) {\n"
-                    "    q.data = static_cast<int*>(std::malloc(capacity * sizeof(int)));\n"
-                    "    q.front = q.rear = q.size = 0;\n"
-                    "    q.capacity = q.data ? capacity : 0;\n}\n\n"
-                    "bool queue_enqueue(Queue &q, int value) {\n"
-                    "    if (!q.data || q.size >= q.capacity) return false;\n"
-                    "    q.data[q.rear] = value;\n"
-                    "    q.rear = (q.rear + 1) % q.capacity;\n"
-                    "    q.size++;\n    return true;\n}\n\n"
-                    "bool queue_dequeue(Queue &q, int &value) {\n"
-                    "    if (!q.data || q.size == 0) return false;\n"
-                    "    value = q.data[q.front];\n"
-                    "    q.front = (q.front + 1) % q.capacity;\n"
-                    "    q.size--;\n    return true;\n}\n\n"
-                    "bool queue_peek(const Queue &q, int &value) {\n"
-                    "    if (!q.data || q.size == 0) return false;\n"
-                    "    value = q.data[q.front];\n    return true;\n}\n\n"
-                    "bool queue_is_empty(const Queue &q) {\n"
-                    "    return q.size == 0;\n}\n\n"
-                    "void queue_destroy(Queue &q) {\n"
-                    "    std::free(q.data);\n    q.data = nullptr;\n    q.front = q.rear = q.size = q.capacity = 0;\n}\n"
+                    f"#include \"{header}\"\n#include <cmath>\n\n"
+                    f"double {module_name}_add(double a, double b) {{ return a + b; }}\n"
+                    f"double {module_name}_subtract(double a, double b) {{ return a - b; }}\n"
+                    f"double {module_name}_multiply(double a, double b) {{ return a * b; }}\n"
+                    f"bool {module_name}_divide(double a, double b, double &result) {{\n"
+                    f"    if (b == 0.0) return false;\n    result = a / b;\n    return true;\n}}\n"
+                    f"bool {module_name}_power(double base, double exponent, double &result) {{\n"
+                    f"    result = std::pow(base, exponent);\n    return !std::isnan(result);\n}}\n"
+                    f"bool {module_name}_sqrt(double val, double &result) {{\n"
+                    f"    if (val < 0.0) return false;\n    result = std::sqrt(val);\n    return true;\n}}\n"
+                    f"bool {module_name}_log(double val, double &result) {{\n"
+                    f"    if (val <= 0.0) return false;\n    result = std::log(val);\n    return true;\n}}\n"
+                    f"double {module_name}_sin(double rad) {{ return std::sin(rad); }}\n"
+                    f"double {module_name}_cos(double rad) {{ return std::cos(rad); }}\n"
+                    f"bool {module_name}_factorial(int n, double &result) {{\n"
+                    f"    if (n < 0 || n > 170) return false;\n    double res = 1.0;\n    for (int i = 1; i <= n; ++i) res *= i;\n    result = res;\n    return true;\n}}\n"
                 )
                 main_content = (
                     f"#include <iostream>\n#include \"{header}\"\n\n"
                     "int main() {\n"
-                    "    Queue q;\n    queue_init(q, 5);\n    queue_enqueue(q, 10);\n    queue_enqueue(q, 20);\n"
-                    "    int val;\n    if (queue_peek(q, val)) std::cout << \"Front: \" << val << std::endl;\n"
-                    "    while (queue_dequeue(q, val)) std::cout << \"Dequeued: \" << val << std::endl;\n"
-                    "    queue_destroy(q);\n    return 0;\n}\n"
+                    f"    std::cout << \"=========================================\\n\";\n"
+                    f"    std::cout << \"     {self.project_name.replace('_', ' ').title()} CLI\\n\";\n"
+                    f"    std::cout << \"=========================================\\n\";\n"
+                    "    std::cout << \"1. Add (+)\\n2. Subtract (-)\\n3. Multiply (*)\\n4. Divide (/)\\n\"\n"
+                    "                 \"5. Power (a^b)\\n6. Square Root (sqrt)\\n7. Sin\\n8. Cos\\n9. Log (ln)\\n10. Factorial (n!)\\n0. Exit\\n\";\n"
+                    "    int choice;\n"
+                    "    while (std::cout << \"\\nSelect operation (0-10): \" && (std::cin >> choice)) {\n"
+                    "        if (choice == 0) {\n            std::cout << \"Exiting application.\\n\";\n            break;\n        }\n"
+                    "        double a, b, res;\n"
+                    "        if (choice >= 1 && choice <= 5) {\n"
+                    "            std::cout << \"Enter first number: \"; if (!(std::cin >> a)) break;\n"
+                    "            std::cout << \"Enter second number: \"; if (!(std::cin >> b)) break;\n"
+                    "        } else if (choice >= 6 && choice <= 9) {\n"
+                    "            std::cout << \"Enter value: \"; if (!(std::cin >> a)) break;\n"
+                    "        }\n"
+                    "        switch (choice) {\n"
+                    f"            case 1: std::cout << \"Result: \" << a << \" + \" << b << \" = \" << {module_name}_add(a, b) << \"\\n\"; break;\n"
+                    f"            case 2: std::cout << \"Result: \" << a << \" - \" << b << \" = \" << {module_name}_subtract(a, b) << \"\\n\"; break;\n"
+                    f"            case 3: std::cout << \"Result: \" << a << \" * \" << b << \" = \" << {module_name}_multiply(a, b) << \"\\n\"; break;\n"
+                    "            case 4:\n"
+                    f"                if ({module_name}_divide(a, b, res)) std::cout << \"Result: \" << a << \" / \" << b << \" = \" << res << \"\\n\";\n"
+                    "                else std::cout << \"Error: Division by zero!\\n\"; break;\n"
+                    "            case 5:\n"
+                    f"                if ({module_name}_power(a, b, res)) std::cout << \"Result: \" << a << \" ^ \" << b << \" = \" << res << \"\\n\";\n"
+                    "                else std::cout << \"Error: Invalid power operation!\\n\"; break;\n"
+                    "            case 6:\n"
+                    f"                if ({module_name}_sqrt(a, res)) std::cout << \"Result: sqrt(\" << a << \") = \" << res << \"\\n\";\n"
+                    "                else std::cout << \"Error: Cannot compute square root of negative number!\\n\"; break;\n"
+                    f"            case 7: std::cout << \"Result: sin(\" << a << \") = \" << {module_name}_sin(a) << \"\\n\"; break;\n"
+                    f"            case 8: std::cout << \"Result: cos(\" << a << \") = \" << {module_name}_cos(a) << \"\\n\"; break;\n"
+                    "            case 9:\n"
+                    f"                if ({module_name}_log(a, res)) std::cout << \"Result: ln(\" << a << \") = \" << res << \"\\n\";\n"
+                    "                else std::cout << \"Error: Logarithm undefined for non-positive numbers!\\n\"; break;\n"
+                    "            case 10: {\n"
+                    "                int n;\n                std::cout << \"Enter integer n: \";\n"
+                    f"                if (std::cin >> n && {module_name}_factorial(n, res)) std::cout << \"Result: \" << n << \"! = \" << res << \"\\n\";\n"
+                    "                else std::cout << \"Error: Invalid factorial input!\\n\"; break;\n"
+                    "            }\n"
+                    "            default: std::cout << \"Invalid choice!\\n\"; break;\n"
+                    "        }\n"
+                    "    }\n    return 0;\n"
+                    "}\n"
+                )
+            else:
+                header_content = (
+                    f"#ifndef {header_guard}\n#define {header_guard}\n\n#include <stdbool.h>\n#include <math.h>\n\n"
+                    f"double {module_name}_add(double a, double b);\n"
+                    f"double {module_name}_subtract(double a, double b);\n"
+                    f"double {module_name}_multiply(double a, double b);\n"
+                    f"bool {module_name}_divide(double a, double b, double *result);\n"
+                    f"bool {module_name}_power(double base, double exponent, double *result);\n"
+                    f"bool {module_name}_sqrt(double val, double *result);\n"
+                    f"bool {module_name}_factorial(int n, double *result);\n\n#endif\n"
+                )
+                source_content = (
+                    f"#include \"{header}\"\n#include <math.h>\n\n"
+                    f"double {module_name}_add(double a, double b) {{ return a + b; }}\n"
+                    f"double {module_name}_subtract(double a, double b) {{ return a - b; }}\n"
+                    f"double {module_name}_multiply(double a, double b) {{ return a * b; }}\n"
+                    f"bool {module_name}_divide(double a, double b, double *result) {{\n"
+                    f"    if (b == 0.0) return false;\n    if (result) *result = a / b;\n    return true;\n}}\n"
+                    f"bool {module_name}_power(double base, double exponent, double *result) {{\n"
+                    f"    double res = pow(base, exponent);\n    if (isnan(res)) return false;\n    if (result) *result = res;\n    return true;\n}}\n"
+                    f"bool {module_name}_sqrt(double val, double *result) {{\n"
+                    f"    if (val < 0.0) return false;\n    if (result) *result = sqrt(val);\n    return true;\n}}\n"
+                    f"bool {module_name}_factorial(int n, double *result) {{\n"
+                    f"    if (n < 0 || n > 170) return false;\n    double res = 1.0;\n    for (int i = 1; i <= n; ++i) res *= i;\n    if (result) *result = res;\n    return true;\n}}\n"
+                )
+                main_content = (
+                    f"#include <stdio.h>\n#include \"{header}\"\n\n"
+                    "int main(void) {\n"
+                    f"    printf(\"=================================\\n\");\n"
+                    f"    printf(\"   {self.project_name.replace('_', ' ').title()} CLI (C)\\n\");\n"
+                    f"    printf(\"=================================\\n\");\n"
+                    "    printf(\"1. Add (+)\\n2. Subtract (-)\\n3. Multiply (*)\\n4. Divide (/)\\n5. Power\\n6. Sqrt\\n7. Factorial\\n0. Exit\\n\");\n"
+                    "    int choice;\n"
+                    "    while (printf(\"\\nSelect operation (0-7): \") && scanf(\"%d\", &choice) == 1) {\n"
+                    "        if (choice == 0) break;\n"
+                    "        double a, b, res;\n"
+                    "        if (choice >= 1 && choice <= 5) {\n"
+                    "            printf(\"Enter first number: \"); if (scanf(\"%lf\", &a) != 1) break;\n"
+                    "            printf(\"Enter second number: \"); if (scanf(\"%lf\", &b) != 1) break;\n"
+                    "        } else if (choice == 6) {\n"
+                    "            printf(\"Enter value: \"); if (scanf(\"%lf\", &a) != 1) break;\n"
+                    "        }\n"
+                    f"        if (choice == 1) printf(\"Result: %f\\n\", {module_name}_add(a, b));\n"
+                    f"        else if (choice == 2) printf(\"Result: %f\\n\", {module_name}_subtract(a, b));\n"
+                    f"        else if (choice == 3) printf(\"Result: %f\\n\", {module_name}_multiply(a, b));\n"
+                    "        else if (choice == 4) {\n"
+                    f"            if ({module_name}_divide(a, b, &res)) printf(\"Result: %f\\n\", res);\n"
+                    "            else printf(\"Error: Division by zero!\\n\");\n"
+                    "        }\n"
+                    "        else if (choice == 5) {\n"
+                    f"            if ({module_name}_power(a, b, &res)) printf(\"Result: %f\\n\", res);\n"
+                    "            else printf(\"Error: Invalid power!\\n\");\n"
+                    "        }\n"
+                    "        else if (choice == 6) {\n"
+                    f"            if ({module_name}_sqrt(a, &res)) printf(\"Result: %f\\n\", res);\n"
+                    "            else printf(\"Error: Negative sqrt!\\n\");\n"
+                    "        }\n"
+                    "        else if (choice == 7) {\n"
+                    "            int n; printf(\"Enter integer n: \");\n"
+                    f"            if (scanf(\"%d\", &n) == 1 && {module_name}_factorial(n, &res)) printf(\"Result: %f\\n\", res);\n"
+                    "            else printf(\"Error: Invalid factorial!\\n\");\n"
+                    "        }\n"
+                    "    }\n    return 0;\n"
+                    "}\n"
+                )
+        else:
+            # Generic specification skeleton for non-math C/C++ projects
+            struct_name = module_name.capitalize()
+            if is_cpp:
+                header_content = (
+                    f"#ifndef {header_guard}\n#define {header_guard}\n\n#include <string>\n#include <vector>\n\n"
+                    f"struct {struct_name} {{\n"
+                    f"    std::string name;\n"
+                    f"    std::vector<double> data;\n"
+                    f"}};\n\n"
+                    f"void {module_name}_init({struct_name} &m, const std::string &name);\n"
+                    f"void {module_name}_add_entry({struct_name} &m, double val);\n"
+                    f"std::size_t {module_name}_count(const {struct_name} &m);\n"
+                    f"void {module_name}_clear({struct_name} &m);\n\n#endif\n"
+                )
+                source_content = (
+                    f"#include \"{header}\"\n\n"
+                    f"void {module_name}_init({struct_name} &m, const std::string &name) {{\n"
+                    f"    m.name = name;\n    m.data.clear();\n}}\n\n"
+                    f"void {module_name}_add_entry({struct_name} &m, double val) {{\n"
+                    f"    m.data.push_back(val);\n}}\n\n"
+                    f"std::size_t {module_name}_count(const {struct_name} &m) {{\n"
+                    f"    return m.data.size();\n}}\n\n"
+                    f"void {module_name}_clear({struct_name} &m) {{\n"
+                    f"    m.data.clear();\n}}\n"
+                )
+                main_content = (
+                    f"#include <iostream>\n#include \"{header}\"\n\n"
+                    "int main() {\n"
+                    f"    {struct_name} m;\n"
+                    f"    {module_name}_init(m, \"{self.project_name}\");\n"
+                    f"    std::cout << \"=== {self.project_name.replace('_', ' ').title()} CLI ===\\n\";\n"
+                    "    std::cout << \"Enter numbers to add to module session (enter non-numeric to finish):\\n\";\n"
+                    "    double val;\n"
+                    f"    while (std::cout << \"Input value: \" && (std::cin >> val)) {{\n"
+                    f"        {module_name}_add_entry(m, val);\n"
+                    "    }}\n"
+                    f"    std::cout << \"Total entries recorded: \" << {module_name}_count(m) << std::endl;\n"
+                    f"    {module_name}_clear(m);\n"
+                    "    return 0;\n"
+                    "}\n"
                 )
             else:
                 header_content = (
                     f"#ifndef {header_guard}\n#define {header_guard}\n\n#include <stddef.h>\n#include <stdbool.h>\n\n"
-                    "typedef struct {\n    int *data;\n    size_t front;\n    size_t rear;\n    size_t size;\n    size_t capacity;\n} Queue;\n\n"
-                    "void queue_init(Queue *q, size_t capacity);\n"
-                    "bool queue_enqueue(Queue *q, int value);\n"
-                    "bool queue_dequeue(Queue *q, int *value);\n"
-                    "bool queue_peek(const Queue *q, int *value);\n"
-                    "bool queue_is_empty(const Queue *q);\n"
-                    "void queue_destroy(Queue *q);\n\n#endif\n"
-                )
-                source_content = (
-                    f"#include \"{header}\"\n#include <stdlib.h>\n\n"
-                    "void queue_init(Queue *q, size_t capacity) {\n"
-                    "    if (!q) return;\n"
-                    "    q->data = (int *)malloc(capacity * sizeof(int));\n"
-                    "    q->front = q->rear = q->size = 0;\n"
-                    "    q->capacity = q->data ? capacity : 0;\n}\n\n"
-                    "bool queue_enqueue(Queue *q, int value) {\n"
-                    "    if (!q || !q->data || q->size >= q->capacity) return false;\n"
-                    "    q->data[q->rear] = value;\n"
-                    "    q->rear = (q->rear + 1) % q->capacity;\n"
-                    "    q->size++;\n    return true;\n}\n\n"
-                    "bool queue_dequeue(Queue *q, int *value) {\n"
-                    "    if (!q || !q->data || q->size == 0) return false;\n"
-                    "    if (value) *value = q->data[q->front];\n"
-                    "    q->front = (q->front + 1) % q->capacity;\n"
-                    "    q->size--;\n    return true;\n}\n\n"
-                    "bool queue_peek(const Queue *q, int *value) {\n"
-                    "    if (!q || !q->data || q->size == 0) return false;\n"
-                    "    if (value) *value = q->data[q->front];\n    return true;\n}\n\n"
-                    "bool queue_is_empty(const Queue *q) {\n"
-                    "    return !q || q->size == 0;\n}\n\n"
-                    "void queue_destroy(Queue *q) {\n"
-                    "    if (!q) return;\n"
-                    "    free(q->data);\n    q->data = NULL;\n    q->front = q->rear = q->size = q->capacity = 0;\n}\n"
-                )
-                main_content = (
-                    f"#include <stdio.h>\n#include \"{header}\"\n\n"
-                    "int main(void) {\n"
-                    "    Queue q;\n    queue_init(&q, 5);\n    queue_enqueue(&q, 10);\n    queue_enqueue(&q, 20);\n"
-                    "    int val;\n    if (queue_peek(&q, &val)) printf(\"Front: %d\\n\", val);\n"
-                    "    while (queue_dequeue(&q, &val)) printf(\"Dequeued: %d\\n\", val);\n"
-                    "    queue_destroy(&q);\n    return 0;\n}\n"
-                )
-        elif domain == "calculator":
-            if is_cpp:
-                header_content = (
-                    f"#ifndef {header_guard}\n#define {header_guard}\n\n"
-                    "double calculator_add(double a, double b);\n"
-                    "double calculator_subtract(double a, double b);\n"
-                    "double calculator_multiply(double a, double b);\n"
-                    "bool calculator_divide(double a, double b, double &result);\n\n#endif\n"
+                    f"typedef struct {{\n    double data[100];\n    size_t count;\n}} {struct_name};\n\n"
+                    f"void {module_name}_init({struct_name} *m);\n"
+                    f"bool {module_name}_add_entry({struct_name} *m, double val);\n"
+                    f"size_t {module_name}_count(const {struct_name} *m);\n\n#endif\n"
                 )
                 source_content = (
                     f"#include \"{header}\"\n\n"
-                    "double calculator_add(double a, double b) { return a + b; }\n"
-                    "double calculator_subtract(double a, double b) { return a - b; }\n"
-                    "double calculator_multiply(double a, double b) { return a * b; }\n"
-                    "bool calculator_divide(double a, double b, double &result) {\n"
-                    "    if (b == 0.0) return false;\n    result = a / b;\n    return true;\n}\n"
-                )
-                main_content = (
-                    f"#include <iostream>\n#include \"{header}\"\n\n"
-                    "int main() {\n"
-                    "    std::cout << \"2 + 3 = \" << calculator_add(2, 3) << std::endl;\n"
-                    "    double res;\n"
-                    "    if (calculator_divide(10, 2, res)) std::cout << \"10 / 2 = \" << res << std::endl;\n"
-                    "    return 0;\n}\n"
-                )
-            else:
-                header_content = (
-                    f"#ifndef {header_guard}\n#define {header_guard}\n\n#include <stdbool.h>\n\n"
-                    "double calculator_add(double a, double b);\n"
-                    "double calculator_subtract(double a, double b);\n"
-                    "double calculator_multiply(double a, double b);\n"
-                    "bool calculator_divide(double a, double b, double *result);\n\n#endif\n"
-                )
-                source_content = (
-                    f"#include \"{header}\"\n\n"
-                    "double calculator_add(double a, double b) { return a + b; }\n"
-                    "double calculator_subtract(double a, double b) { return a - b; }\n"
-                    "double calculator_multiply(double a, double b) { return a * b; }\n"
-                    "bool calculator_divide(double a, double b, double *result) {\n"
-                    "    if (b == 0.0) return false;\n    if (result) *result = a / b;\n    return true;\n}\n"
+                    f"void {module_name}_init({struct_name} *m) {{\n"
+                    f"    if (m) m->count = 0;\n}}\n\n"
+                    f"bool {module_name}_add_entry({struct_name} *m, double val) {{\n"
+                    f"    if (!m || m->count >= 100) return false;\n"
+                    f"    m->data[m->count++] = val;\n    return true;\n}}\n\n"
+                    f"size_t {module_name}_count(const {struct_name} *m) {{\n"
+                    f"    return m ? m->count : 0;\n}}\n"
                 )
                 main_content = (
                     f"#include <stdio.h>\n#include \"{header}\"\n\n"
                     "int main(void) {\n"
-                    "    printf(\"2 + 3 = %f\\n\", calculator_add(2, 3));\n"
-                    "    double res;\n"
-                    "    if (calculator_divide(10, 2, &res)) printf(\"10 / 2 = %f\\n\", res);\n"
-                    "    return 0;\n}\n"
-                )
-        else: # stack or generic
-            if is_cpp:
-                header_content = (
-                    f"#ifndef {header_guard}\n#define {header_guard}\n\n#include <cstddef>\n\n"
-                    f"struct {struct_name} {{\n    int *data;\n    std::size_t size;\n    std::size_t capacity;\n}};\n\n"
-                    f"void {domain}_init({struct_name} &s, std::size_t capacity);\n"
-                    f"void {domain}_push({struct_name} &s, int value);\n"
-                    f"bool {domain}_pop({struct_name} &s, int &value);\n"
-                    f"bool {domain}_peek(const {struct_name} &s, int &value);\n"
-                    f"bool {domain}_is_empty(const {struct_name} &s);\n"
-                    f"void {domain}_destroy({struct_name} &s);\n\n#endif\n"
-                )
-                source_content = (
-                    f"#include \"{header}\"\n#include <cstdlib>\n#include <new>\n\n"
-                    f"void {domain}_init({struct_name} &s, std::size_t capacity) {{\n"
-                    f"    s.data = static_cast<int*>(std::malloc(capacity * sizeof(int)));\n"
-                    f"    s.size = 0;\n    s.capacity = s.data ? capacity : 0;\n}}\n\n"
-                    f"void {domain}_push({struct_name} &s, int value) {{\n"
-                    f"    if (s.size >= s.capacity) {{\n"
-                    f"        std::size_t new_cap = s.capacity == 0 ? 4 : s.capacity * 2;\n"
-                    f"        int *new_data = static_cast<int*>(std::realloc(s.data, new_cap * sizeof(int)));\n"
-                    f"        if (!new_data) return;\n        s.data = new_data;\n        s.capacity = new_cap;\n"
-                    f"    }}\n    s.data[s.size++] = value;\n}}\n\n"
-                    f"bool {domain}_pop({struct_name} &s, int &value) {{\n"
-                    f"    if (s.size == 0) return false;\n    value = s.data[--s.size];\n    return true;\n}}\n\n"
-                    f"bool {domain}_peek(const {struct_name} &s, int &value) {{\n"
-                    f"    if (s.size == 0) return false;\n    value = s.data[s.size - 1];\n    return true;\n}}\n\n"
-                    f"bool {domain}_is_empty(const {struct_name} &s) {{\n    return s.size == 0;\n}}\n\n"
-                    f"void {domain}_destroy({struct_name} &s) {{\n"
-                    f"    std::free(s.data);\n    s.data = nullptr;\n    s.size = s.capacity = 0;\n}}\n"
-                )
-                main_content = (
-                    f"#include <iostream>\n#include \"{header}\"\n\n"
-                    "int main() {\n"
-                    f"    {struct_name} s;\n    {domain}_init(s, 4);\n    {domain}_push(s, 10);\n"
-                    f"    int val;\n    if ({domain}_peek(s, val)) std::cout << \"Top: \" << val << std::endl;\n"
-                    f"    while ({domain}_pop(s, val)) std::cout << \"Popped: \" << val << std::endl;\n"
-                    f"    {domain}_destroy(s);\n    return 0;\n}}\n"
-                )
-            else:
-                header_content = (
-                    f"#ifndef {header_guard}\n#define {header_guard}\n\n#include <stddef.h>\n#include <stdbool.h>\n\n"
-                    f"typedef struct {{\n    int *data;\n    size_t size;\n    size_t capacity;\n}} {struct_name};\n\n"
-                    f"void {domain}_init({struct_name} *s, size_t capacity);\n"
-                    f"void {domain}_push({struct_name} *s, int value);\n"
-                    f"bool {domain}_pop({struct_name} *s, int *value);\n"
-                    f"bool {domain}_peek(const {struct_name} *s, int *value);\n"
-                    f"bool {domain}_is_empty(const {struct_name} *s);\n"
-                    f"void {domain}_destroy({struct_name} *s);\n\n#endif\n"
-                )
-                source_content = (
-                    f"#include \"{header}\"\n#include <stdlib.h>\n\n"
-                    f"void {domain}_init({struct_name} *s, size_t capacity) {{\n"
-                    f"    if (!s) return;\n"
-                    f"    s->data = (int *)malloc(capacity * sizeof(int));\n"
-                    f"    s->size = 0;\n    s->capacity = s->data ? capacity : 0;\n}}\n\n"
-                    f"void {domain}_push({struct_name} *s, int value) {{\n"
-                    f"    if (!s) return;\n"
-                    f"    if (s->size >= s->capacity) {{\n"
-                    f"        size_t new_cap = s->capacity == 0 ? 4 : s->capacity * 2;\n"
-                    f"        int *new_data = (int *)realloc(s->data, new_cap * sizeof(int));\n"
-                    f"        if (!new_data) return;\n        s->data = new_data;\n        s->capacity = new_cap;\n"
-                    f"    }}\n    s->data[s->size++] = value;\n}}\n\n"
-                    f"bool {domain}_pop({struct_name} *s, int *value) {{\n"
-                    f"    if (!s || s->size == 0) return false;\n"
-                    f"    if (value) *value = s->data[--s->size];\n    return true;\n}}\n\n"
-                    f"bool {domain}_peek(const {struct_name} *s, int *value) {{\n"
-                    f"    if (!s || s->size == 0) return false;\n"
-                    f"    if (value) *value = s->data[s->size - 1];\n    return true;\n}}\n\n"
-                    f"bool {domain}_is_empty(const {struct_name} *s) {{\n"
-                    f"    return !s || s->size == 0;\n}}\n\n"
-                    f"void {domain}_destroy({struct_name} *s) {{\n"
-                    f"    if (!s) return;\n"
-                    f"    free(s->data);\n    s->data = NULL;\n    s->size = s->capacity = 0;\n}}\n"
-                )
-                main_content = (
-                    f"#include <stdio.h>\n#include \"{header}\"\n\n"
-                    "int main(void) {\n"
-                    f"    {struct_name} s;\n    {domain}_init(&s, 4);\n    {domain}_push(&s, 10);\n"
-                    f"    int val;\n    if ({domain}_peek(&s, &val)) printf(\"Top: %d\\n\", val);\n"
-                    f"    while ({domain}_pop(&s, &val)) printf(\"Popped: %d\\n\", val);\n"
-                    f"    {domain}_destroy(&s);\n    return 0;\n}}\n"
+                    f"    {struct_name} m;\n"
+                    f"    {module_name}_init(&m);\n"
+                    f"    printf(\"=== {self.project_name.replace('_', ' ').title()} CLI ===\\n\");\n"
+                    "    printf(\"Enter numbers to add (non-numeric to finish):\\n\");\n"
+                    "    double val;\n"
+                    "    printf(\"Input value: \");\n"
+                    f"    while (scanf(\"%lf\", &val) == 1) {{\n"
+                    f"        {module_name}_add_entry(&m, val);\n"
+                    "        printf(\"Input value: \");\n"
+                    "    }\n"
+                    f"    printf(\"Total entries recorded: %zu\\n\", {module_name}_count(&m));\n"
+                    "    return 0;\n"
+                    "}\n"
                 )
 
         write_file(os.path.join(self.project_dir, header), header_content)
@@ -1023,102 +1148,90 @@ class SDLCCrewManager:
         write_file(os.path.join(self.project_dir, main_src), main_content)
         generate_makefile(self.project_dir, self.project_name, self.project_language)
 
+
     def _generate_c_tests(self, project_dir: str) -> None:
-        domain = self._infer_c_domain(getattr(self, 'current_prompt', ''))
+        module_name = re.sub(r'[^a-zA-Z0-9_]', '_', self.project_name).strip('_').lower()
         is_cpp = (self.project_language == "cpp")
         test_ext = "cpp" if is_cpp else "c"
-        header = f"{domain}.hpp" if is_cpp else f"{domain}.h"
+        header = f"{module_name}.hpp" if is_cpp else f"{module_name}.h"
         test_file = os.path.join(project_dir, "tests", f"test_runner.{test_ext}")
-        struct_name = domain.capitalize()
 
-        if domain == "queue":
+        prompt_text = (getattr(self, 'current_prompt', '') + ' ' + self.project_name).lower()
+        is_math = any(kw in prompt_text for kw in ["calc", "math", "scientific", "arithmetic"])
+
+        if is_math:
             if is_cpp:
                 test_content = (
                     f"#include <cassert>\n#include <iostream>\n#include \"{header}\"\n\n"
                     "int main() {\n"
-                    "    Queue q;\n    queue_init(q, 5);\n    assert(queue_is_empty(q));\n"
-                    "    assert(queue_enqueue(q, 10));\n    assert(queue_enqueue(q, 20));\n"
-                    "    assert(!queue_is_empty(q));\n    int val;\n"
-                    "    assert(queue_peek(q, val) && val == 10);\n"
-                    "    assert(queue_dequeue(q, val) && val == 10);\n"
-                    "    assert(queue_dequeue(q, val) && val == 20);\n"
-                    "    assert(queue_is_empty(q));\n    queue_destroy(q);\n"
-                    "    std::cout << \"C++ Queue tests passed.\" << std::endl;\n    return 0;\n}\n"
+                    f"    assert({module_name}_add(5.0, 3.0) == 8.0);\n"
+                    f"    assert({module_name}_subtract(10.0, 4.0) == 6.0);\n"
+                    f"    assert({module_name}_multiply(2.0, 4.0) == 8.0);\n"
+                    f"    double res;\n"
+                    f"    assert({module_name}_divide(10.0, 2.0, res) && res == 5.0);\n"
+                    f"    assert(!{module_name}_divide(10.0, 0.0, res));\n"
+                    f"    assert({module_name}_power(2.0, 3.0, res) && res == 8.0);\n"
+                    f"    assert({module_name}_sqrt(16.0, res) && res == 4.0);\n"
+                    f"    assert(!{module_name}_sqrt(-4.0, res));\n"
+                    f"    assert({module_name}_factorial(5, res) && res == 120.0);\n"
+                    f"    std::cout << \"{self.project_name} automated tests passed successfully.\" << std::endl;\n"
+                    "    return 0;\n}\n"
                 )
             else:
                 test_content = (
                     f"#include <assert.h>\n#include <stdio.h>\n#include \"{header}\"\n\n"
                     "int main(void) {\n"
-                    "    Queue q;\n    queue_init(&q, 5);\n    assert(queue_is_empty(&q));\n"
-                    "    assert(queue_enqueue(&q, 10));\n    assert(queue_enqueue(&q, 20));\n"
-                    "    assert(!queue_is_empty(&q));\n    int val;\n"
-                    "    assert(queue_peek(&q, &val) && val == 10);\n"
-                    "    assert(queue_dequeue(&q, &val) && val == 10);\n"
-                    "    assert(queue_dequeue(&q, &val) && val == 20);\n"
-                    "    assert(queue_is_empty(&q));\n    queue_destroy(&q);\n"
-                    "    printf(\"C Queue tests passed.\\n\");\n    return 0;\n}\n"
-                )
-        elif domain == "calculator":
-            if is_cpp:
-                test_content = (
-                    f"#include <cassert>\n#include <iostream>\n#include \"{header}\"\n\n"
-                    "int main() {\n"
-                    "    assert(calculator_add(2.0, 3.0) == 5.0);\n"
-                    "    assert(calculator_subtract(5.0, 2.0) == 3.0);\n"
-                    "    assert(calculator_multiply(4.0, 2.5) == 10.0);\n"
-                    "    double res;\n"
-                    "    assert(calculator_divide(10.0, 2.0, res) && res == 5.0);\n"
-                    "    assert(!calculator_divide(5.0, 0.0, res));\n"
-                    "    std::cout << \"C++ Calculator tests passed.\" << std::endl;\n    return 0;\n}\n"
-                )
-            else:
-                test_content = (
-                    f"#include <assert.h>\n#include <stdio.h>\n#include \"{header}\"\n\n"
-                    "int main(void) {\n"
-                    "    assert(calculator_add(2.0, 3.0) == 5.0);\n"
-                    "    assert(calculator_subtract(5.0, 2.0) == 3.0);\n"
-                    "    assert(calculator_multiply(4.0, 2.5) == 10.0);\n"
-                    "    double res;\n"
-                    "    assert(calculator_divide(10.0, 2.0, &res) && res == 5.0);\n"
-                    "    assert(!calculator_divide(5.0, 0.0, &res));\n"
-                    "    printf(\"C Calculator tests passed.\\n\");\n    return 0;\n}\n"
+                    f"    assert({module_name}_add(5.0, 3.0) == 8.0);\n"
+                    f"    assert({module_name}_subtract(10.0, 4.0) == 6.0);\n"
+                    f"    assert({module_name}_multiply(2.0, 4.0) == 8.0);\n"
+                    f"    double res;\n"
+                    f"    assert({module_name}_divide(10.0, 2.0, &res) && res == 5.0);\n"
+                    f"    assert(!{module_name}_divide(10.0, 0.0, &res));\n"
+                    f"    assert({module_name}_power(2.0, 3.0, &res) && res == 8.0);\n"
+                    f"    assert({module_name}_sqrt(16.0, &res) && res == 4.0);\n"
+                    f"    assert(!{module_name}_sqrt(-4.0, &res));\n"
+                    f"    assert({module_name}_factorial(5, &res) && res == 120.0);\n"
+                    f"    printf(\"{self.project_name} automated tests passed successfully.\\n\");\n"
+                    "    return 0;\n}\n"
                 )
         else:
+            struct_name = module_name.capitalize()
             if is_cpp:
                 test_content = (
                     f"#include <cassert>\n#include <iostream>\n#include \"{header}\"\n\n"
                     "int main() {\n"
-                    f"    {struct_name} s;\n    {domain}_init(s, 4);\n    assert({domain}_is_empty(s));\n"
-                    f"    {domain}_push(s, 1);\n    {domain}_push(s, 2);\n    int val;\n"
-                    f"    assert({domain}_peek(s, val) && val == 2);\n"
-                    f"    assert({domain}_pop(s, val) && val == 2);\n"
-                    f"    assert({domain}_pop(s, val) && val == 1);\n"
-                    f"    assert({domain}_is_empty(s));\n    {domain}_destroy(s);\n"
-                    f"    std::cout << \"C++ {domain} tests passed.\" << std::endl;\n    return 0;\n}}\n"
+                    f"    {struct_name} m;\n"
+                    f"    {module_name}_init(m, \"test_session\");\n"
+                    f"    assert({module_name}_count(m) == 0);\n"
+                    f"    {module_name}_add_entry(m, 42.0);\n"
+                    f"    assert({module_name}_count(m) == 1);\n"
+                    f"    {module_name}_clear(m);\n"
+                    f"    assert({module_name}_count(m) == 0);\n"
+                    f"    std::cout << \"{self.project_name} automated tests passed successfully.\" << std::endl;\n"
+                    "    return 0;\n}\n"
                 )
             else:
                 test_content = (
                     f"#include <assert.h>\n#include <stdio.h>\n#include \"{header}\"\n\n"
                     "int main(void) {\n"
-                    f"    {struct_name} s;\n    {domain}_init(&s, 4);\n    assert({domain}_is_empty(&s));\n"
-                    f"    {domain}_push(&s, 1);\n    {domain}_push(&s, 2);\n    int val;\n"
-                    f"    assert({domain}_peek(&s, &val) && val == 2);\n"
-                    f"    assert({domain}_pop(&s, &val) && val == 2);\n"
-                    f"    assert({domain}_pop(&s, &val) && val == 1);\n"
-                    f"    assert({domain}_is_empty(&s));\n    {domain}_destroy(&s);\n"
-                    f"    printf(\"C {domain} tests passed.\\n\");\n    return 0;\n}}\n"
+                    f"    {struct_name} m;\n"
+                    f"    {module_name}_init(&m);\n"
+                    f"    assert({module_name}_count(&m) == 0);\n"
+                    f"    assert({module_name}_add_entry(&m, 42.0));\n"
+                    f"    assert({module_name}_count(&m) == 1);\n"
+                    f"    printf(\"{self.project_name} automated tests passed successfully.\\n\");\n"
+                    "    return 0;\n}\n"
                 )
-
+        os.makedirs(os.path.dirname(test_file), exist_ok=True)
         write_file(test_file, test_content)
 
     def _generate_c_documentation(self, project_dir: str) -> None:
         readme = os.path.join(project_dir, "README.md")
         user_manual = os.path.join(project_dir, "User_Manual.md")
         runtime = "C++" if self.project_language == "cpp" else "C"
-        domain = self._infer_c_domain(getattr(self, 'current_prompt', ''))
         readme_content = (
             f"# {self.project_name}\n\n"
-            f"A {runtime} implementation of {domain} with build and test support.\n\n"
+            f"A {runtime} implementation of {self.project_name} with build and test support.\n\n"
             "## Build\n\n"
             "```sh\nmake\n```\n\n"
             "## Run\n\n"
@@ -1128,12 +1241,13 @@ class SDLCCrewManager:
         )
         user_manual_content = (
             "# User Manual\n\n"
-            f"This project provides a {runtime} {domain} library and an example application.\n\n"
+            f"This project provides a {runtime} {self.project_name} application.\n\n"
             "## Build Instructions\n1. Run `make` to compile the executable.\n2. Run `make test` to build and execute the test runner.\n\n"
-            f"## Usage\n1. Build the code with `make`.\n2. Execute `./{self.project_name}`.\n3. The program demonstrates operations on the {domain} component.\n"
+            f"## Usage\n1. Build the code with `make`.\n2. Execute `./{self.project_name}`.\n3. Enter input values at the dynamic CLI prompt.\n"
         )
         write_file(readme, readme_content)
         write_file(user_manual, user_manual_content)
+
 
     def _run_design_stage(self, design_output: str, delta_path: str):
         try:
@@ -1158,13 +1272,19 @@ class SDLCCrewManager:
 
     def _run_code_stage(self, code_agent_wrapper: BaseAgent, code_output, dependency_path: str, reuse_path: str, delta_path: str):
         existing_source_code = self._collect_existing_source_code()
+        srs_file = os.path.join(self.reports_dir, "SRS.md")
+        design_file = os.path.join(self.reports_dir, "Design.md")
+        srs_content = read_file(srs_file) if os.path.exists(srs_file) else ""
+        design_content = read_file(design_file) if os.path.exists(design_file) else ""
         code_task_vars = {
             "reports_dir": self.reports_dir,
             "project_dir": self.project_dir,
             "existing_source_code": existing_source_code,
             "dependency_graph_path": dependency_path,
             "reuse_report_path": reuse_path,
-            "delta_report_path": delta_path
+            "delta_report_path": delta_path,
+            "srs_content": srs_content,
+            "design_content": design_content
         }
         # Use the unified _run_single_stage which has a Crew fallback
         return self._run_single_stage(
@@ -1174,6 +1294,7 @@ class SDLCCrewManager:
             output_file=code_output,
             tools=[read_project_file, write_project_file, list_project_files, analyze_python_ast]
         )
+
 
     def _run_testing_stage(self, testing_output_dir: str, test_impact_path: str):
         try:

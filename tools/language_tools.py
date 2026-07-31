@@ -3,18 +3,17 @@ import os
 
 # --- Pattern sets ---
 _CPP_PATTERNS = [
-    r'\bc\+\+', r'\bcpp\b', r'object[- ]oriented', r'\bclass\b',
-    r'\btemplate\b', r'std::', r'\biostream\b', r'\bvector\b',
-    r'\bnamespace\b', r'using\s+c\+\+', r'g\+\+', r'\.cpp\b',
-    r'c\+\+\d+', r'modern\s+c'
+    r'\bc\+\+\b', r'\bcpp\b', r'using\s+c\+\+', r'\bin\s+c\+\+\b', r'c\+\+\s+language',
+    r'c\+\+\s+code', r'write\s+in\s+c\+\+', r'\bg\+\+\b', r'\.cpp\b'
 ]
 
 _C_PATTERNS = [
-    r'\bin\s+c\b', r'\bc\s+program', r'\bc\s+language', r'\bc\s+code',
-    r'using\s+c\b', r'\.c\s+file', r'\bheader\s+file', r'\bmakefile\b',
-    r'\bgcc\b', r'\bmalloc\b', r'\bfree\b', r'\bpointer\b',
-    r'\bstruct\b', r'\barduino\b', r'\bembedded\b', r'\bmicrocontroller\b',
-    r'\bprintf\b', r'\bscanf\b', r'write\s+in\s+c\b'
+    r'\bin\s+c\b', r'\bc\s+program\b', r'\bc\s+language\b', r'\bc\s+code\b',
+    r'using\s+c\b', r'\.c\s+file\b', r'\bgcc\b', r'write\s+in\s+c\b'
+]
+
+_PYTHON_PATTERNS = [
+    r'\bpython\b', r'\bpy\b', r'\bpytest\b', r'in\s+python', r'python\s+code', r'\.py\b'
 ]
 
 def detect_language(prompt: str) -> str:
@@ -23,17 +22,25 @@ def detect_language(prompt: str) -> str:
     Returns:
         'cpp'    – C++ project
         'c'      – C project
-        'python' – Python project (default)
+        'python' – Python project (default if language is not explicitly mentioned)
     """
+    if not prompt:
+        return 'python'
+
     text = prompt.lower()
 
     cpp_score = sum(1 for p in _CPP_PATTERNS if re.search(p, text))
     c_score   = sum(1 for p in _C_PATTERNS   if re.search(p, text))
+    py_score  = sum(1 for p in _PYTHON_PATTERNS if re.search(p, text))
 
-    if cpp_score > 0:
+    if cpp_score > 0 and cpp_score >= c_score:
         return 'cpp'
     if c_score > 0:
         return 'c'
+    if py_score > 0:
+        return 'python'
+
+    # Default to Python when language is not explicitly specified
     return 'python'
 
 
@@ -73,3 +80,12 @@ def load_project_language(project_dir: str) -> str:
             if fname.endswith('.c'):
                 return 'c'
     return 'python'
+
+
+def has_explicit_language(prompt: str) -> bool:
+    """Return True if user prompt explicitly mentions C, C++, or Python."""
+    if not prompt:
+        return False
+    text = prompt.lower()
+    return any(re.search(p, text) for p in _CPP_PATTERNS + _C_PATTERNS + _PYTHON_PATTERNS)
+
