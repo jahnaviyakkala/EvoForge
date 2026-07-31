@@ -1,6 +1,6 @@
 # Software Requirements Specification (SRS)
 ## 1. Document Overview & System Purpose
-- [NEW] The system shall provide a fully functional, robust, and extensible Secure_bank application in Python.
+- [NEW] The system shall provide a fully functional, robust, and extensible Bank application in Python.
 - [NEW] This specification outlines the functional features, user interactions, input/output validation, error handling, and quality constraints.
 ## 2. User Personas & System Scope
 - [NEW] **Target Users**: End-users, software developers, and automated test runners.
@@ -8,7 +8,7 @@
 - [NEW] **Dependencies**: Standard Python library and Pytest testing framework.
 ## 3. Functional Requirements
 ## 3.1 Primary Operations & Business Logic
-- [NEW] The system shall implement core operational routines for Secure_bank.
+- [NEW] The system shall implement core operational routines for Bank.
 - [NEW] The system shall support dynamic execution via an interactive user menu interface.
 - [NEW] The system shall output accurate computation and status results for all valid inputs.
 ## 3.2 Input Validation & Boundary Error Handling
@@ -26,7 +26,7 @@
 ## 4.3 Maintainability & Code Quality
 - [NEW] Source code shall adhere strictly to Python PEP 8 formatting guidelines, type hinting, and modular function decomposition.
 ## 4.4 Automated Testing & Verification
-- [NEW] The system shall include an automated Pytest test suite (`tests/test_secure_bank.py`) covering positive, negative, and edge-case execution paths.
+- [NEW] The system shall include an automated Pytest test suite (`tests/test_bank.py`) covering positive, negative, and edge-case execution paths.
 ## 5. Interface & Operational Constraints
 - [NEW] The user interface shall operate as a clean, text-based interactive command-line interface (CLI).
 - [NEW] All primary documentation (`README.md`, `User_Manual.md`) shall include setup, execution, and test commands.

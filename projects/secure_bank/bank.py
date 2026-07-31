@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-class Secure_bank:
+class Bank:
     def __init__(self, name: str = 'default'):
         self.name = name
         self._data: Dict[str, Any] = {}

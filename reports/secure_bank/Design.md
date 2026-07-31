@@ -1,22 +1,22 @@
 # Design Document
 
 ## Architecture Overview
-The project is organized as a modular Python application centered on the `secure_bank` module.
+The project is organized as a modular Python application centered on the `bank` module.
 
 ## Module Specifications
-- `secure_bank.py`: Core domain logic and operations.
+- `bank.py`: Core domain logic and operations.
 - `main.py`: Application entry point and demonstration CLI.
-- `tests/test_secure_bank.py`: Pytest suite for automated testing.
+- `tests/test_bank.py`: Pytest suite for automated testing.
 
 ## Sequence Flow
 ```mermaid
 sequenceDiagram
     participant User
     participant Main
-    participant Secure_bankService
+    participant BankService
 
     User->>Main: execute program
-    Main->>Secure_bankService: perform operation
-    Secure_bankService-->>Main: return result
+    Main->>BankService: perform operation
+    BankService-->>Main: return result
     Main-->>User: display output
 ```

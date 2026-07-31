@@ -6,12 +6,12 @@ No reusable classes or functions were detected in the existing project.
 
 ## Reuse Decisions
 
-- [NEW] `[NEW] The system shall provide a fully functional, robust, and extensible Secure_bank application in Python.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall provide a fully functional, robust, and extensible Bank application in Python.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] This specification outlines the functional features, user interactions, input/output validation, error handling, and quality constraints.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] **Target Users**: End-users, software developers, and automated test runners.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] **Execution Environment**: Python 3.8+ command-line environment.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] **Dependencies**: Standard Python library and Pytest testing framework.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall implement core operational routines for Secure_bank.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall implement core operational routines for Bank.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] The system shall support dynamic execution via an interactive user menu interface.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] The system shall output accurate computation and status results for all valid inputs.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] The system shall validate user inputs prior to processing and reject invalid data types or out-of-bound values.` requires new implementation. No strong reusable component found.
@@ -22,6 +22,6 @@ No reusable classes or functions were detected in the existing project.
 - [NEW] `[NEW] Operational routines shall execute synchronously within 100 milliseconds for standard operations.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] The system shall maintain 100% stability under invalid inputs by trapping exceptions internally.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] Source code shall adhere strictly to Python PEP 8 formatting guidelines, type hinting, and modular function decomposition.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall include an automated Pytest test suite (`tests/test_secure_bank.py`) covering positive, negative, and edge-case execution paths.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall include an automated Pytest test suite (`tests/test_bank.py`) covering positive, negative, and edge-case execution paths.` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] The user interface shall operate as a clean, text-based interactive command-line interface (CLI).` requires new implementation. No strong reusable component found.
 - [NEW] `[NEW] All primary documentation (`README.md`, `User_Manual.md`) shall include setup, execution, and test commands.` requires new implementation. No strong reusable component found.

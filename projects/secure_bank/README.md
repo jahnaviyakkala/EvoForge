@@ -1,6 +1,6 @@
 # secure_bank
 
-A Python implementation of secure_bank with automated Pytest unit testing.
+A Python implementation of bank with automated Pytest unit testing.
 
 ## Requirements
 - Python 3.8+
