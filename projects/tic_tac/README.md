@@ -19,9 +19,13 @@ projects/tic_tac/
 ├── README.md
 ├── User_Manual.md
 ├── main.cpp
+├── main.o
+├── tests/test_runner
 ├── tests/test_runner.cpp
+├── tic_tac
 ├── tic_tac.cpp
 ├── tic_tac.hpp
+├── tic_tac.o
 ```
 
 ## 🛠️ Build & Setup Instructions
