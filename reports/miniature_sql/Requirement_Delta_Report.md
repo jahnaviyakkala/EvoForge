@@ -11,7 +11,7 @@
 ### 1. Document Overview & System Purpose
 
 - [NEW] The system shall provide a high-performance, standards-compliant Miniature Sql application written in C.
-- [NEW] Specification Prompt: "Build a miniature SQL database engine in C++ supporting CREATE TABLE, INSERT, SELECT, DELETE, WHERE clauses, CSV-based storage, a SQL parser, comprehensive unit tests, a CMake build system, and complete documentation. in python"
+- [NEW] Specification Prompt: "Build a miniature SQL database engine in C++ supporting CREATE TABLE, INSERT, SELECT, DELETE, WHERE clauses, CSV-based storage, a SQL parser, comprehensive unit tests, a CMake build system, and complete documentation"
 
 ### 2. User Personas & System Scope
 
@@ -21,7 +21,7 @@
 
 ### 3.1 Core Application Capabilities
 
-- [NEW] The system shall execute functional logic satisfying: Build a miniature SQL database engine in C++ supporting CREATE TABLE, INSERT, SELECT, DELETE, WHERE clauses, CSV-based storage, a SQL parser, comprehensive unit tests, a CMake build system, and complete documentation. in python.
+- [NEW] The system shall execute functional logic satisfying: Build a miniature SQL database engine in C++ supporting CREATE TABLE, INSERT, SELECT, DELETE, WHERE clauses, CSV-based storage, a SQL parser, comprehensive unit tests, a CMake build system, and complete documentation.
 - [NEW] The system shall provide standard module initialization, operational execution, and resource cleanup routines.
 - [NEW] The system shall include an interactive CLI entry point (`main`) prompting users for runtime inputs dynamically.
 
