@@ -1,6 +1,6 @@
 # miniature_sql
 
-A C++ implementation of miniature_sql with build and test support.
+A C implementation of miniature_sql with build and test support.
 
 ## Build
 

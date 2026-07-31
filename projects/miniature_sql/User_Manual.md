@@ -1,6 +1,6 @@
 # User Manual
 
-This project provides a C++ miniature_sql library and an example application.
+This project provides a C miniature_sql application.
 
 ## Build Instructions
 1. Run `make` to compile the executable.
@@ -9,4 +9,4 @@ This project provides a C++ miniature_sql library and an example application.
 ## Usage
 1. Build the code with `make`.
 2. Execute `./miniature_sql`.
-3. The program demonstrates operations on the miniature_sql component.
+3. Enter input values at the dynamic CLI prompt.

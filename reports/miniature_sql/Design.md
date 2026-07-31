@@ -1,26 +1,26 @@
 # Design Document
 
 ## Architecture Overview
-The project is a C++ library providing a Miniature_sql module.
+The project is a C application providing the `miniature_sql` module.
 
 ## Module Specifications
-- `miniature_sql.hpp`: Public API declarations for the miniature_sql component.
-- `miniature_sql.cpp`: Core implementation of miniature_sql operations.
-- `main.cpp`: Example usage and demonstration program.
-- `tests/test_runner.cpp`: Automated test harness validating miniature_sql functionality.
+- `miniature_sql.h`: Public API declarations for the Miniature Sql component.
+- `miniature_sql.c`: Implementation of Miniature Sql core logic.
+- `main.c`: Interactive command-line interface accepting dynamic user inputs.
+- `tests/test_runner.c`: Automated assertion test suite.
 
 ## Data Model
-- `Miniature_sql` struct storing module state and resources.
+- Data structures and function signatures declared in `miniature_sql.h`.
 
 ## Sequence Flow
 ```mermaid
 sequenceDiagram
     participant User
-    participant Main
-    participant Miniature_sqlModule
+    participant Main CLI
+    participant Miniature_sql Engine
 
-    User->>Main: start program
-    Main->>Miniature_sqlModule: init
-    Main->>Miniature_sqlModule: operate
-    Main->>Miniature_sqlModule: destroy
+    User->>Main CLI: launch program & provide input choices
+    Main CLI->>Miniature_sql Engine: call domain operations
+    Miniature_sql Engine-->>Main CLI: return results / error status
+    Main CLI-->>User: display output in console
 ```
