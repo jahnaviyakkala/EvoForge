@@ -1,0 +1,855 @@
+{
+  "modules": {
+    "test_calculation_service.py": {
+      "imports": [
+        "calculation_service",
+        "unittest"
+      ],
+      "api_dependencies": [
+        "sql"
+      ],
+      "definitions": {
+        "functions": [],
+        "classes": [
+          {
+            "name": "TestCalculationService",
+            "bases": [
+              "unittest.TestCase"
+            ],
+            "methods": [
+              {
+                "name": "setUp",
+                "args": [
+                  "self"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "test_add",
+                "args": [
+                  "self"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "test_subtract",
+                "args": [
+                  "self"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "test_multiply",
+                "args": [
+                  "self"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "test_divide",
+                "args": [
+                  "self"
+                ],
+                "docstring": ""
+              }
+            ],
+            "docstring": ""
+          }
+        ]
+      },
+      "call_edges": [
+        {
+          "caller": "<unknown>",
+          "callee": "unittest.main"
+        },
+        {
+          "caller": "setUp",
+          "callee": "CalculationService"
+        },
+        {
+          "caller": "test_add",
+          "callee": "self.assertEqual"
+        },
+        {
+          "caller": "test_add",
+          "callee": "self.assertEqual"
+        },
+        {
+          "caller": "test_subtract",
+          "callee": "self.assertEqual"
+        },
+        {
+          "caller": "test_subtract",
+          "callee": "self.assertEqual"
+        },
+        {
+          "caller": "test_multiply",
+          "callee": "self.assertEqual"
+        },
+        {
+          "caller": "test_multiply",
+          "callee": "self.assertEqual"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "self.assertEqual"
+        },
+        {
+          "caller": "test_add",
+          "callee": "self.calculation_service.add"
+        },
+        {
+          "caller": "test_add",
+          "callee": "self.calculation_service.add"
+        },
+        {
+          "caller": "test_subtract",
+          "callee": "self.calculation_service.subtract"
+        },
+        {
+          "caller": "test_subtract",
+          "callee": "self.calculation_service.subtract"
+        },
+        {
+          "caller": "test_multiply",
+          "callee": "self.calculation_service.multiply"
+        },
+        {
+          "caller": "test_multiply",
+          "callee": "self.calculation_service.multiply"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "self.calculation_service.divide"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "self.assertRaises"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "self.calculation_service.divide"
+        }
+      ],
+      "language": "python"
+    },
+    "calculation_service.py": {
+      "imports": [],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [],
+        "classes": [
+          {
+            "name": "CalculationService",
+            "bases": [],
+            "methods": [
+              {
+                "name": "add",
+                "args": [
+                  "self",
+                  "a",
+                  "b"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "subtract",
+                "args": [
+                  "self",
+                  "a",
+                  "b"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "multiply",
+                "args": [
+                  "self",
+                  "a",
+                  "b"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "divide",
+                "args": [
+                  "self",
+                  "a",
+                  "b"
+                ],
+                "docstring": ""
+              }
+            ],
+            "docstring": ""
+          }
+        ]
+      },
+      "call_edges": [
+        {
+          "caller": "divide",
+          "callee": "ValueError"
+        }
+      ],
+      "language": "python"
+    },
+    "main.py": {
+      "imports": [
+        "calculator_cli"
+      ],
+      "api_dependencies": [
+        "sql"
+      ],
+      "definitions": {
+        "functions": [
+          {
+            "name": "main",
+            "args": [],
+            "docstring": ""
+          }
+        ],
+        "classes": []
+      },
+      "call_edges": [
+        {
+          "caller": "main",
+          "callee": "CalculatorCLI"
+        },
+        {
+          "caller": "main",
+          "callee": "calculator.run"
+        },
+        {
+          "caller": "<unknown>",
+          "callee": "main"
+        }
+      ],
+      "language": "python"
+    },
+    "calculator_cli.py": {
+      "imports": [
+        "calculation_service"
+      ],
+      "api_dependencies": [
+        "sql"
+      ],
+      "definitions": {
+        "functions": [],
+        "classes": [
+          {
+            "name": "CalculatorCLI",
+            "bases": [],
+            "methods": [
+              {
+                "name": "__init__",
+                "args": [
+                  "self"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "run",
+                "args": [
+                  "self"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "handle_operation",
+                "args": [
+                  "self",
+                  "operation",
+                  "a",
+                  "b"
+                ],
+                "docstring": ""
+              }
+            ],
+            "docstring": ""
+          }
+        ]
+      },
+      "call_edges": [
+        {
+          "caller": "<unknown>",
+          "callee": "CalculatorCLI"
+        },
+        {
+          "caller": "<unknown>",
+          "callee": "calculator.run"
+        },
+        {
+          "caller": "__init__",
+          "callee": "CalculationService"
+        },
+        {
+          "caller": "handle_operation",
+          "callee": "self.calculation_service.add"
+        },
+        {
+          "caller": "run",
+          "callee": "input"
+        },
+        {
+          "caller": "run",
+          "callee": "expression.split"
+        },
+        {
+          "caller": "run",
+          "callee": "float"
+        },
+        {
+          "caller": "run",
+          "callee": "float"
+        },
+        {
+          "caller": "run",
+          "callee": "self.handle_operation"
+        },
+        {
+          "caller": "run",
+          "callee": "print"
+        },
+        {
+          "caller": "handle_operation",
+          "callee": "self.calculation_service.subtract"
+        },
+        {
+          "caller": "run",
+          "callee": "len"
+        },
+        {
+          "caller": "run",
+          "callee": "print"
+        },
+        {
+          "caller": "run",
+          "callee": "print"
+        },
+        {
+          "caller": "run",
+          "callee": "print"
+        },
+        {
+          "caller": "handle_operation",
+          "callee": "self.calculation_service.multiply"
+        },
+        {
+          "caller": "handle_operation",
+          "callee": "self.calculation_service.divide"
+        },
+        {
+          "caller": "handle_operation",
+          "callee": "ValueError"
+        }
+      ],
+      "language": "python"
+    },
+    "tests/test_calculation_service.py": {
+      "imports": [
+        "calculation_service",
+        "pytest"
+      ],
+      "api_dependencies": [
+        "sql"
+      ],
+      "definitions": {
+        "functions": [
+          {
+            "name": "calc_service",
+            "args": [],
+            "docstring": ""
+          },
+          {
+            "name": "test_add",
+            "args": [
+              "calc_service"
+            ],
+            "docstring": ""
+          },
+          {
+            "name": "test_subtract",
+            "args": [
+              "calc_service"
+            ],
+            "docstring": ""
+          },
+          {
+            "name": "test_multiply",
+            "args": [
+              "calc_service"
+            ],
+            "docstring": ""
+          },
+          {
+            "name": "test_divide",
+            "args": [
+              "calc_service"
+            ],
+            "docstring": ""
+          }
+        ],
+        "classes": []
+      },
+      "call_edges": [
+        {
+          "caller": "calc_service",
+          "callee": "CalculationService"
+        },
+        {
+          "caller": "test_add",
+          "callee": "calc_service.add"
+        },
+        {
+          "caller": "test_add",
+          "callee": "calc_service.add"
+        },
+        {
+          "caller": "test_add",
+          "callee": "calc_service.add"
+        },
+        {
+          "caller": "test_add",
+          "callee": "calc_service.add"
+        },
+        {
+          "caller": "test_subtract",
+          "callee": "calc_service.subtract"
+        },
+        {
+          "caller": "test_subtract",
+          "callee": "calc_service.subtract"
+        },
+        {
+          "caller": "test_subtract",
+          "callee": "calc_service.subtract"
+        },
+        {
+          "caller": "test_subtract",
+          "callee": "calc_service.subtract"
+        },
+        {
+          "caller": "test_multiply",
+          "callee": "calc_service.multiply"
+        },
+        {
+          "caller": "test_multiply",
+          "callee": "calc_service.multiply"
+        },
+        {
+          "caller": "test_multiply",
+          "callee": "calc_service.multiply"
+        },
+        {
+          "caller": "test_multiply",
+          "callee": "calc_service.multiply"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "calc_service.divide"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "calc_service.divide"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "calc_service.divide"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "pytest.raises"
+        },
+        {
+          "caller": "test_divide",
+          "callee": "calc_service.divide"
+        }
+      ],
+      "language": "python"
+    },
+    "tests/test_calculator_cli.py": {
+      "imports": [
+        "calculator_cli",
+        "pytest"
+      ],
+      "api_dependencies": [
+        "sql"
+      ],
+      "definitions": {
+        "functions": [
+          {
+            "name": "cli",
+            "args": [],
+            "docstring": ""
+          },
+          {
+            "name": "test_handle_operation",
+            "args": [
+              "cli"
+            ],
+            "docstring": ""
+          },
+          {
+            "name": "test_handle_operation_invalid",
+            "args": [
+              "cli"
+            ],
+            "docstring": ""
+          }
+        ],
+        "classes": []
+      },
+      "call_edges": [
+        {
+          "caller": "cli",
+          "callee": "CalculatorCLI"
+        },
+        {
+          "caller": "test_handle_operation",
+          "callee": "cli.handle_operation"
+        },
+        {
+          "caller": "test_handle_operation",
+          "callee": "cli.handle_operation"
+        },
+        {
+          "caller": "test_handle_operation",
+          "callee": "cli.handle_operation"
+        },
+        {
+          "caller": "test_handle_operation",
+          "callee": "cli.handle_operation"
+        },
+        {
+          "caller": "test_handle_operation_invalid",
+          "callee": "pytest.raises"
+        },
+        {
+          "caller": "test_handle_operation_invalid",
+          "callee": "cli.handle_operation"
+        }
+      ],
+      "language": "python"
+    },
+    "tests/test_main.py": {
+      "imports": [
+        "main",
+        "pytest"
+      ],
+      "api_dependencies": [
+        "sql"
+      ],
+      "definitions": {
+        "functions": [
+          {
+            "name": "test_main",
+            "args": [
+              "capsys"
+            ],
+            "docstring": ""
+          }
+        ],
+        "classes": []
+      },
+      "call_edges": [],
+      "language": "python"
+    }
+  },
+  "module_imports": {
+    "test_calculation_service.py": [
+      "calculation_service",
+      "unittest"
+    ],
+    "calculation_service.py": [],
+    "main.py": [
+      "calculator_cli"
+    ],
+    "calculator_cli.py": [
+      "calculation_service"
+    ],
+    "tests/test_calculation_service.py": [
+      "calculation_service",
+      "pytest"
+    ],
+    "tests/test_calculator_cli.py": [
+      "calculator_cli",
+      "pytest"
+    ],
+    "tests/test_main.py": [
+      "main",
+      "pytest"
+    ]
+  },
+  "api_dependencies": [],
+  "db_dependencies": [
+    "sql"
+  ],
+  "class_dependency_graph": {
+    "TestCalculationService": [
+      "unittest.TestCase"
+    ],
+    "CalculationService": [],
+    "CalculatorCLI": []
+  },
+  "function_call_graph": [
+    {
+      "caller": "<unknown>",
+      "callee": "unittest.main"
+    },
+    {
+      "caller": "setUp",
+      "callee": "CalculationService"
+    },
+    {
+      "caller": "test_add",
+      "callee": "self.assertEqual"
+    },
+    {
+      "caller": "test_add",
+      "callee": "self.assertEqual"
+    },
+    {
+      "caller": "test_subtract",
+      "callee": "self.assertEqual"
+    },
+    {
+      "caller": "test_subtract",
+      "callee": "self.assertEqual"
+    },
+    {
+      "caller": "test_multiply",
+      "callee": "self.assertEqual"
+    },
+    {
+      "caller": "test_multiply",
+      "callee": "self.assertEqual"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "self.assertEqual"
+    },
+    {
+      "caller": "test_add",
+      "callee": "self.calculation_service.add"
+    },
+    {
+      "caller": "test_add",
+      "callee": "self.calculation_service.add"
+    },
+    {
+      "caller": "test_subtract",
+      "callee": "self.calculation_service.subtract"
+    },
+    {
+      "caller": "test_subtract",
+      "callee": "self.calculation_service.subtract"
+    },
+    {
+      "caller": "test_multiply",
+      "callee": "self.calculation_service.multiply"
+    },
+    {
+      "caller": "test_multiply",
+      "callee": "self.calculation_service.multiply"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "self.calculation_service.divide"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "self.assertRaises"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "self.calculation_service.divide"
+    },
+    {
+      "caller": "divide",
+      "callee": "ValueError"
+    },
+    {
+      "caller": "main",
+      "callee": "CalculatorCLI"
+    },
+    {
+      "caller": "main",
+      "callee": "calculator.run"
+    },
+    {
+      "caller": "<unknown>",
+      "callee": "main"
+    },
+    {
+      "caller": "<unknown>",
+      "callee": "CalculatorCLI"
+    },
+    {
+      "caller": "<unknown>",
+      "callee": "calculator.run"
+    },
+    {
+      "caller": "__init__",
+      "callee": "CalculationService"
+    },
+    {
+      "caller": "handle_operation",
+      "callee": "self.calculation_service.add"
+    },
+    {
+      "caller": "run",
+      "callee": "input"
+    },
+    {
+      "caller": "run",
+      "callee": "expression.split"
+    },
+    {
+      "caller": "run",
+      "callee": "float"
+    },
+    {
+      "caller": "run",
+      "callee": "float"
+    },
+    {
+      "caller": "run",
+      "callee": "self.handle_operation"
+    },
+    {
+      "caller": "run",
+      "callee": "print"
+    },
+    {
+      "caller": "handle_operation",
+      "callee": "self.calculation_service.subtract"
+    },
+    {
+      "caller": "run",
+      "callee": "len"
+    },
+    {
+      "caller": "run",
+      "callee": "print"
+    },
+    {
+      "caller": "run",
+      "callee": "print"
+    },
+    {
+      "caller": "run",
+      "callee": "print"
+    },
+    {
+      "caller": "handle_operation",
+      "callee": "self.calculation_service.multiply"
+    },
+    {
+      "caller": "handle_operation",
+      "callee": "self.calculation_service.divide"
+    },
+    {
+      "caller": "handle_operation",
+      "callee": "ValueError"
+    },
+    {
+      "caller": "calc_service",
+      "callee": "CalculationService"
+    },
+    {
+      "caller": "test_add",
+      "callee": "calc_service.add"
+    },
+    {
+      "caller": "test_add",
+      "callee": "calc_service.add"
+    },
+    {
+      "caller": "test_add",
+      "callee": "calc_service.add"
+    },
+    {
+      "caller": "test_add",
+      "callee": "calc_service.add"
+    },
+    {
+      "caller": "test_subtract",
+      "callee": "calc_service.subtract"
+    },
+    {
+      "caller": "test_subtract",
+      "callee": "calc_service.subtract"
+    },
+    {
+      "caller": "test_subtract",
+      "callee": "calc_service.subtract"
+    },
+    {
+      "caller": "test_subtract",
+      "callee": "calc_service.subtract"
+    },
+    {
+      "caller": "test_multiply",
+      "callee": "calc_service.multiply"
+    },
+    {
+      "caller": "test_multiply",
+      "callee": "calc_service.multiply"
+    },
+    {
+      "caller": "test_multiply",
+      "callee": "calc_service.multiply"
+    },
+    {
+      "caller": "test_multiply",
+      "callee": "calc_service.multiply"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "calc_service.divide"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "calc_service.divide"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "calc_service.divide"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "pytest.raises"
+    },
+    {
+      "caller": "test_divide",
+      "callee": "calc_service.divide"
+    },
+    {
+      "caller": "cli",
+      "callee": "CalculatorCLI"
+    },
+    {
+      "caller": "test_handle_operation",
+      "callee": "cli.handle_operation"
+    },
+    {
+      "caller": "test_handle_operation",
+      "callee": "cli.handle_operation"
+    },
+    {
+      "caller": "test_handle_operation",
+      "callee": "cli.handle_operation"
+    },
+    {
+      "caller": "test_handle_operation",
+      "callee": "cli.handle_operation"
+    },
+    {
+      "caller": "test_handle_operation_invalid",
+      "callee": "pytest.raises"
+    },
+    {
+      "caller": "test_handle_operation_invalid",
+      "callee": "cli.handle_operation"
+    }
+  ]
+}
