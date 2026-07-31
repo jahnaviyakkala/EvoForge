@@ -1,21 +1,17 @@
 # secure_bank
 
-A C implementation of secure_bank with build and test support.
+A Python implementation of secure_bank with automated Pytest unit testing.
 
-## Build
+## Requirements
+- Python 3.8+
+- Pytest
 
+## Execution
 ```sh
-make
+python main.py
 ```
 
-## Run
-
+## Testing
 ```sh
-./secure_bank
-```
-
-## Test
-
-```sh
-make test
+pytest
 ```

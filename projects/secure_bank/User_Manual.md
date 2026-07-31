@@ -1,12 +1,8 @@
 # User Manual
 
-This project provides a C secure_bank application.
+This document provides instructions for using the secure_bank Python application.
 
-## Build Instructions
-1. Run `make` to compile the executable.
-2. Run `make test` to build and execute the test runner.
-
-## Usage
-1. Build the code with `make`.
-2. Execute `./secure_bank`.
-3. Enter input values at the dynamic CLI prompt.
+## Setup and Installation
+1. Ensure Python 3 is installed.
+2. Run `python main.py` to execute main entry point.
+3. Run `pytest` to verify suite correctness.

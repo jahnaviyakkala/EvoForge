@@ -6,33 +6,22 @@ No reusable classes or functions were detected in the existing project.
 
 ## Reuse Decisions
 
-- [NEW] `[NEW] The system shall provide a high-performance, standards-compliant Secure Bank application written in C.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] Specification Prompt: "Create a secure Bank Account & Transaction Ledger` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] management application written in C. Structure into bank_ledger.h, bank_ledger.c, main.c,` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] and tests/test_runner.c. Define structures for Account and Transaction, supporting` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] account creation, deposits, withdrawals, transfers, and transaction logs. Include` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] boundary checks for negative amounts, insufficient balance overdrafts, and NULL pointers` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] with proper malloc/free memory management. main.c must provide an interactive CLI menu` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] loop, and tests/test_runner.c must contain automated assertions testing transfer logic` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] and overdraft prevention."` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] **Target Users**: System users, software developers, and automated build pipelines.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] **Compilation Tools**: GCC / G++ / Clang toolchains supporting POSIX Makefile builds.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] **Dependencies**: Standard runtime libraries (`libc`/`libm` or `<iostream>`, `<cmath>`, `<cassert>`).` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall execute functional logic satisfying: Create a secure Bank Account & Transaction Ledger` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] management application written in C. Structure into bank_ledger.h, bank_ledger.c, main.c,` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] and tests/test_runner.c. Define structures for Account and Transaction, supporting` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] account creation, deposits, withdrawals, transfers, and transaction logs. Include` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] boundary checks for negative amounts, insufficient balance overdrafts, and NULL pointers` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] with proper malloc/free memory management. main.c must provide an interactive CLI menu` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] loop, and tests/test_runner.c must contain automated assertions testing transfer logic` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] and overdraft prevention..` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall provide standard module initialization, operational execution, and resource cleanup routines.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall include an interactive CLI entry point (`main`) prompting users for runtime inputs dynamically.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall validate all boundary parameters (division by zero, null pointers, out-of-bounds inputs).` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] The system shall ensure clean memory management without heap leaks or buffer overruns.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] High execution performance with minimal heap allocation overhead.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] Code structured into header files (`.h`/`.hpp`) and source files (`.c`/`.cpp`) with standard `#ifndef` include guards.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] Warning-free compilation under strict GCC/G++ compiler flags.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] POSIX Makefile supporting `make`, `make test`, and `make clean` targets.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] Automated assertion test runner in `tests/test_runner`.` requires new implementation. No strong reusable component found.
-- [NEW] `[NEW] Interactive CLI menu loop accepting dynamic user input via standard input.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall provide a fully functional, robust, and extensible Secure_bank application in Python.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] This specification outlines the functional features, user interactions, input/output validation, error handling, and quality constraints.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] **Target Users**: End-users, software developers, and automated test runners.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] **Execution Environment**: Python 3.8+ command-line environment.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] **Dependencies**: Standard Python library and Pytest testing framework.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall implement core operational routines for Secure_bank.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall support dynamic execution via an interactive user menu interface.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall output accurate computation and status results for all valid inputs.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall validate user inputs prior to processing and reject invalid data types or out-of-bound values.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall handle boundary conditions (e.g. division by zero, empty collections, negative parameters) without raising unhandled exceptions.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall display informative error messages when input validation fails.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall allow users to execute multiple operations sequentially until opting to exit.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall ensure clean initialization and termination of application resources.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] Operational routines shall execute synchronously within 100 milliseconds for standard operations.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall maintain 100% stability under invalid inputs by trapping exceptions internally.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] Source code shall adhere strictly to Python PEP 8 formatting guidelines, type hinting, and modular function decomposition.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The system shall include an automated Pytest test suite (`tests/test_secure_bank.py`) covering positive, negative, and edge-case execution paths.` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] The user interface shall operate as a clean, text-based interactive command-line interface (CLI).` requires new implementation. No strong reusable component found.
+- [NEW] `[NEW] All primary documentation (`README.md`, `User_Manual.md`) shall include setup, execution, and test commands.` requires new implementation. No strong reusable component found.

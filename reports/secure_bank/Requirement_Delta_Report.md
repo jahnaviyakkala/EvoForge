@@ -1,7 +1,7 @@
 # Requirement Delta Report
 
 ## Summary
-- New requirements: 30
+- New requirements: 19
 - Modified requirements: 0
 - Removed requirements: 0
 - Unchanged requirements: 0
@@ -10,54 +10,49 @@
 
 ### 1. Document Overview & System Purpose
 
-- [NEW] The system shall provide a high-performance, standards-compliant Secure Bank application written in C.
-- [NEW] Specification Prompt: "Create a secure Bank Account & Transaction Ledger
-- [NEW] management application written in C. Structure into bank_ledger.h, bank_ledger.c, main.c,
-- [NEW] and tests/test_runner.c. Define structures for Account and Transaction, supporting
-- [NEW] account creation, deposits, withdrawals, transfers, and transaction logs. Include
-- [NEW] boundary checks for negative amounts, insufficient balance overdrafts, and NULL pointers
-- [NEW] with proper malloc/free memory management. main.c must provide an interactive CLI menu
-- [NEW] loop, and tests/test_runner.c must contain automated assertions testing transfer logic
-- [NEW] and overdraft prevention."
+- [NEW] The system shall provide a fully functional, robust, and extensible Secure_bank application in Python.
+- [NEW] This specification outlines the functional features, user interactions, input/output validation, error handling, and quality constraints.
 
 ### 2. User Personas & System Scope
 
-- [NEW] **Target Users**: System users, software developers, and automated build pipelines.
-- [NEW] **Compilation Tools**: GCC / G++ / Clang toolchains supporting POSIX Makefile builds.
-- [NEW] **Dependencies**: Standard runtime libraries (`libc`/`libm` or `<iostream>`, `<cmath>`, `<cassert>`).
+- [NEW] **Target Users**: End-users, software developers, and automated test runners.
+- [NEW] **Execution Environment**: Python 3.8+ command-line environment.
+- [NEW] **Dependencies**: Standard Python library and Pytest testing framework.
 
-### 3.1 Core Application Capabilities
+### 3.1 Primary Operations & Business Logic
 
-- [NEW] The system shall execute functional logic satisfying: Create a secure Bank Account & Transaction Ledger
-- [NEW] management application written in C. Structure into bank_ledger.h, bank_ledger.c, main.c,
-- [NEW] and tests/test_runner.c. Define structures for Account and Transaction, supporting
-- [NEW] account creation, deposits, withdrawals, transfers, and transaction logs. Include
-- [NEW] boundary checks for negative amounts, insufficient balance overdrafts, and NULL pointers
-- [NEW] with proper malloc/free memory management. main.c must provide an interactive CLI menu
-- [NEW] loop, and tests/test_runner.c must contain automated assertions testing transfer logic
-- [NEW] and overdraft prevention..
-- [NEW] The system shall provide standard module initialization, operational execution, and resource cleanup routines.
-- [NEW] The system shall include an interactive CLI entry point (`main`) prompting users for runtime inputs dynamically.
+- [NEW] The system shall implement core operational routines for Secure_bank.
+- [NEW] The system shall support dynamic execution via an interactive user menu interface.
+- [NEW] The system shall output accurate computation and status results for all valid inputs.
 
-### 3.2 Boundary Error & Memory Management
+### 3.2 Input Validation & Boundary Error Handling
 
-- [NEW] The system shall validate all boundary parameters (division by zero, null pointers, out-of-bounds inputs).
-- [NEW] The system shall ensure clean memory management without heap leaks or buffer overruns.
+- [NEW] The system shall validate user inputs prior to processing and reject invalid data types or out-of-bound values.
+- [NEW] The system shall handle boundary conditions (e.g. division by zero, empty collections, negative parameters) without raising unhandled exceptions.
+- [NEW] The system shall display informative error messages when input validation fails.
 
-### 4.1 Performance & Memory Efficiency
+### 3.3 State Management & Execution Flow
 
-- [NEW] High execution performance with minimal heap allocation overhead.
+- [NEW] The system shall allow users to execute multiple operations sequentially until opting to exit.
+- [NEW] The system shall ensure clean initialization and termination of application resources.
 
-### 4.2 Code Standards & Architecture
+### 4.1 Performance & Latency
 
-- [NEW] Code structured into header files (`.h`/`.hpp`) and source files (`.c`/`.cpp`) with standard `#ifndef` include guards.
-- [NEW] Warning-free compilation under strict GCC/G++ compiler flags.
+- [NEW] Operational routines shall execute synchronously within 100 milliseconds for standard operations.
 
-### 4.3 Build System & Testing
+### 4.2 Reliability & Fault Tolerance
 
-- [NEW] POSIX Makefile supporting `make`, `make test`, and `make clean` targets.
-- [NEW] Automated assertion test runner in `tests/test_runner`.
+- [NEW] The system shall maintain 100% stability under invalid inputs by trapping exceptions internally.
 
-### 5. Interface Specifications
+### 4.3 Maintainability & Code Quality
 
-- [NEW] Interactive CLI menu loop accepting dynamic user input via standard input.
+- [NEW] Source code shall adhere strictly to Python PEP 8 formatting guidelines, type hinting, and modular function decomposition.
+
+### 4.4 Automated Testing & Verification
+
+- [NEW] The system shall include an automated Pytest test suite (`tests/test_secure_bank.py`) covering positive, negative, and edge-case execution paths.
+
+### 5. Interface & Operational Constraints
+
+- [NEW] The user interface shall operate as a clean, text-based interactive command-line interface (CLI).
+- [NEW] All primary documentation (`README.md`, `User_Manual.md`) shall include setup, execution, and test commands.
