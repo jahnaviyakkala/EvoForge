@@ -1,7 +1,22 @@
-# Placeholder output for design_task
+# Design Document
 
-Description:
-Review the SRS.md at /home/pss/project/reports/calc/SRS.md and the Requirement_Delta_Report.md at /home/pss/project/reports/calc/Requirement_Delta_Report.md (if any). Generate or update the Design.md file at /home/pss/project/reports/calc/Design.md. Outline: 1. System Architecture overview. 2. Module and Class Specifications (class names, methods, signatures, docstrings). 3. Structural & Sequence flow (represented using Mermaid diagrams). Keep it strictly synchronized with the functional requirements and impact directions. Do NOT wrap the output in markdown code blocks or add conversational preamble. Output ONLY the raw markdown content of the Design.md file.
+## Architecture Overview
+The project is organized as a modular Python application centered on the `calculator` module.
 
+## Module Specifications
+- `calculator.py`: Core domain logic and operations.
+- `main.py`: Application entry point and demonstration CLI.
+- `tests/test_calculator.py`: Pytest suite for automated testing.
 
-Note: Crew/agent execution was skipped because the crew library is unavailable or incompatible, and local agent execution failed.
+## Sequence Flow
+```mermaid
+sequenceDiagram
+    participant User
+    participant Main
+    participant CalculatorService
+
+    User->>Main: execute program
+    Main->>CalculatorService: perform operation
+    CalculatorService-->>Main: return result
+    Main-->>User: display output
+```
