@@ -57,7 +57,14 @@ def parse_markdown_sections(markdown_text: str) -> OrderedDict:
     return parsed_sections
 
 
-def _match_best_pair(source_items: List[str], target_items: List[str], threshold: float = 0.9) -> Dict[int, Tuple[int, float]]:
+def strip_tag_prefix(text: str) -> str:
+    """Strip any pre-existing requirement classification tag from text."""
+    if not text:
+        return ""
+    return re.sub(r"^\s*(?:[-*+]\s*)?\[(NEW|MODIFIED|REMOVED|UNCHANGED)\]\s*", "", text, flags=re.IGNORECASE).strip()
+
+
+def _match_best_pair(source_items: List[str], target_items: List[str], threshold: float = 0.85) -> Dict[int, Tuple[int, float]]:
     matches: Dict[int, Tuple[int, float]] = {}
     used_target_indices = set()
 
@@ -69,8 +76,8 @@ def _match_best_pair(source_items: List[str], target_items: List[str], threshold
                 continue
             ratio = difflib.SequenceMatcher(
                 None,
-                normalize_text(source),
-                normalize_text(target)
+                normalize_text(strip_tag_prefix(source)),
+                normalize_text(strip_tag_prefix(target))
             ).ratio()
             if ratio > best_ratio:
                 best_ratio = ratio
@@ -89,17 +96,21 @@ def classify_requirements(old_srs: str, new_srs: str) -> Tuple[str, str, List[Di
     old_items = []
     for section, items in old_sections.items():
         for item in items:
-            old_items.append({"section": section, "text": item})
+            clean_txt = strip_tag_prefix(item)
+            if clean_txt:
+                old_items.append({"section": section, "text": clean_txt})
 
     new_items = []
     for section, items in new_sections.items():
         for item in items:
-            new_items.append({"section": section, "text": item})
+            clean_txt = strip_tag_prefix(item)
+            if clean_txt:
+                new_items.append({"section": section, "text": clean_txt})
 
     old_texts = [item["text"] for item in old_items]
     new_texts = [item["text"] for item in new_items]
 
-    matches = _match_best_pair(old_texts, new_texts)
+    matches = _match_best_pair(old_texts, new_texts, threshold=0.85)
     classified = []
     matched_old_indices = set()
     matched_new_indices = set()
@@ -162,7 +173,8 @@ def classify_requirements(old_srs: str, new_srs: str) -> Tuple[str, str, List[Di
             continue
         merged_sections.append(f"## {section}")
         for item in section_items.get(section, []):
-            merged_sections.append(f"- [{item['tag']}] {item['text']}")
+            clean_txt = strip_tag_prefix(item['text'])
+            merged_sections.append(f"- [{item['tag']}] {clean_txt}")
 
     merged_markdown = "\n".join(merged_sections).strip() + "\n"
     delta_report = build_requirement_delta_report(classified, section_order)

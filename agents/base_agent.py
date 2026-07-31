@@ -40,7 +40,7 @@ class BaseAgent:
             try:
                 if HAS_CREW:
                     from crewai import LLM
-                    ollama_model = os.getenv("OLLAMA_MODEL", "llama3")
+                    ollama_model = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:14b")
                     if not ollama_model.startswith("ollama/"):
                         model_name = f"ollama/{ollama_model}"
                     else:
@@ -49,9 +49,10 @@ class BaseAgent:
                     llm = LLM(
                         model=model_name,
                         base_url=base_url,
-                        temperature=0.2,
+                        temperature=0.1,
                         timeout=1800,
-                        max_tokens=3000
+                        max_tokens=4096,
+                        num_ctx=16384
                     )
                     llm.supports_function_calling = lambda: False
                     return llm
@@ -61,12 +62,12 @@ class BaseAgent:
             # Fallback: simple Ollama runner using the local 'ollama' CLI (must be installed)
             class OllamaClient:
                 def __init__(self, model_name=None, base_url=None, temperature=0.2):
-                    self.model = model_name or os.getenv("OLLAMA_MODEL", "gemma3:1b")
+                    self.model = model_name or os.getenv("OLLAMA_MODEL", "qwen2.5-coder:14b")
                     self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
                     self.temperature = temperature
 
                 def generate(self, prompt: str) -> str:
-                    import subprocess, shlex
+                    import subprocess
                     cmd = ["ollama", "run", self.model, "--quiet", "--prompt", prompt]
                     try:
                         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -147,13 +148,20 @@ class BaseAgent:
                 # Use the underlying llm client to generate a response
                 try:
                     # OllamaClient defines .generate
-                    if hasattr(self.llm, 'generate'):
-                        return self.llm.generate(prompt)
-                    # LangChain/Chat models can be called differently — attempt .generate_prompt or __call__
-                    if hasattr(self.llm, '__call__'):
-                        return str(self.llm(prompt))
-                    if hasattr(self.llm, 'generate'):
-                        return str(self.llm.generate(prompt))
+                    if hasattr(self.llm, 'generate') and callable(getattr(self.llm, 'generate')):
+                        res = self.llm.generate(prompt)
+                        return res if isinstance(res, str) else str(res)
+                    # LangChain/Chat models specify .invoke
+                    if hasattr(self.llm, 'invoke') and callable(getattr(self.llm, 'invoke')):
+                        res = self.llm.invoke(prompt)
+                        if hasattr(res, 'content'):
+                            return str(res.content)
+                        return str(res)
+                    if callable(self.llm):
+                        res = self.llm(prompt)
+                        if hasattr(res, 'content'):
+                            return str(res.content)
+                        return str(res)
                 except Exception as e:
                     return f"LOCAL_AGENT_ERROR: {e}"
                 return ""

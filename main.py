@@ -126,10 +126,15 @@ def autonomous_triage(prompt: str) -> tuple[str, str]:
                     match = re.search(r"```(?:json)?\s*(.*?)\s*```", clean_result, re.DOTALL)
                     if match:
                         clean_result = match.group(1).strip()
+                json_match = re.search(r"\{.*\}", clean_result, re.DOTALL)
+                if json_match:
+                    clean_result = json_match.group(0)
                 
                 data = json.loads(clean_result)
-                project_name = data.get("project_name", "").strip().lower().replace(" ", "_")
-                mode = data.get("mode", "new").strip().lower()
+                project_name = re.sub(r'[^a-zA-Z0-9_]', '_', data.get("project_name", "")).strip('_').lower()
+                mode = str(data.get("mode", "new")).strip().lower()
+                if mode not in {"new", "evolve"}:
+                    mode = "new"
                 return
             except Exception:
                 pass

@@ -26,6 +26,19 @@ from tools.reuse_tools import generate_reuse_decision_report
 from tools.impact_tools import generate_test_impact_report
 import tools.cli_ui as ui
 
+def clean_markdown_content(text: str) -> str:
+    """Strips markdown code fences and extraneous preamble/postamble from LLM text."""
+    if not text:
+        return ""
+    text = text.strip()
+    match = re.search(r"```(?:markdown)?\s*\n(.*?)\n```$", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    match = re.search(r"```(?:markdown)?\s*\n(.*?)\n```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return text
+
 class SDLCCrewManager:
     def __init__(self, project_name: str):
         self.project_name = project_name
@@ -146,10 +159,58 @@ class SDLCCrewManager:
             return read_file(srs_path)
         return ""
 
+    def _extract_and_write_files(self, text: str) -> list[str]:
+        """Extract code blocks or file markers from LLM response and write to project_dir."""
+        if not text:
+            return []
+
+        written = []
+        # Pattern 1: --- FILE: rel/path --- or ### File: rel/path or // File: rel/path
+        file_block_pattern = re.compile(
+            r"(?:---|###|//|\#)\s*(?:FILE|File):\s*`?([^\n`\s]+)`?\s*(?:---|###)?\s*\n```(?:[a-zA-Z0-9_\+\-]+)?\s*\n(.*?)\n```",
+            re.DOTALL
+        )
+        for rel_path, code in file_block_pattern.findall(text):
+            target_path = os.path.join(self.project_dir, rel_path.strip())
+            write_file(target_path, code.strip() + "\n")
+            written.append(rel_path.strip())
+
+        if written:
+            return written
+
+        # Pattern 2: ```python filename=rel_path
+        fence_file_pattern = re.compile(
+            r"```(?:[a-zA-Z0-9_\+\-]+)?\s+(?:filename=|file=)?`?([^\n`\s]+)`?\s*\n(.*?)\n```",
+            re.DOTALL
+        )
+        for rel_path, code in fence_file_pattern.findall(text):
+            if "/" in rel_path or "." in rel_path:
+                target_path = os.path.join(self.project_dir, rel_path.strip())
+                write_file(target_path, code.strip() + "\n")
+                written.append(rel_path.strip())
+
+        if written:
+            return written
+
+        # Pattern 3: Single code block with comment header `# filename.py` or `// filename.c`
+        code_block_pattern = re.compile(
+            r"```(?:[a-zA-Z0-9_\+\-]+)?\s*\n(.*?)\n```",
+            re.DOTALL
+        )
+        for code_match in code_block_pattern.finditer(text):
+            code = code_match.group(1).strip()
+            first_line = code.splitlines()[0] if code.splitlines() else ""
+            header_match = re.match(r"^\s*(?:#|//|/\*)\s*(?:[Ff]ile:\s*)?([a-zA-Z0-9_\-/\.]+\.(?:py|c|cpp|h|hpp|md|txt|json))\b", first_line)
+            if header_match:
+                rel_path = header_match.group(1).strip()
+                target_path = os.path.join(self.project_dir, rel_path)
+                write_file(target_path, code + "\n")
+                written.append(rel_path)
+
+        return written
+
     def _run_single_stage(self, agent_wrapper: BaseAgent, task_name: str, task_vars: dict, output_file=None, tools=None):
-        """Run a single agent task. If Crew is unavailable, write a safe placeholder output and continue.
-        """
-        # Prepare agent and task description
+        """Run a single agent task. Cleans LLM output, extracts code files, or triggers fallback."""
         agent = None
         description = task_vars.get("prompt", f"{task_name} (no description)")
         expected = None
@@ -163,82 +224,56 @@ class SDLCCrewManager:
                 print(f"Agent wrapper preparation failed: {e}")
                 agent = None
 
-        if not HAS_CREW:
-            print(f"Crew not available; attempting local agent execution for task '{task_name}'.")
+        result_text = None
 
-            # For offline C/C++ code, testing, and documentation stages, deterministic fallback is more reliable.
-            if hasattr(self, 'project_language') and self.project_language in {"c", "cpp"} and task_name in {"code_task", "testing_task", "documentation_task"}:
-                print(f"Using deterministic C/C++ fallback for task '{task_name}' because Crew is unavailable.")
-                fallback_output = self._run_c_fallback(task_name, task_vars, output_file)
-                if fallback_output is not None:
-                    return fallback_output
+        # 1. Try local execution if CrewAI is unavailable
+        if agent is not None and hasattr(agent, 'run') and not HAS_CREW:
+            try:
+                raw_out = agent.run(description)
+                if raw_out and not self._is_local_agent_failure(raw_out):
+                    result_text = raw_out
+            except Exception as e:
+                print(f"Local agent execution failed for '{task_name}': {e}")
 
-            # If we have a local agent implementation, run it and write its output
-            if agent is not None and hasattr(agent, 'run'):
-                try:
-                    result_text = agent.run(description)
-                    if not result_text or self._is_local_agent_failure(result_text):
-                        raise ValueError("Local agent returned an error response")
-                    if output_file:
-                        try:
-                            write_file(output_file, result_text)
-                        except Exception as e:
-                            print(f"Failed writing agent output to {output_file}: {e}")
-                    return result_text
-                except Exception as e:
-                    print(f"Local agent execution failed: {e}")
+        # 2. Try CrewAI execution if CrewAI is available
+        elif HAS_CREW and agent is not None:
+            try:
+                task = Task(
+                    description=description,
+                    expected_output=expected or f"Output for {task_name}",
+                    agent=agent,
+                    output_file=output_file
+                )
+                crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=True)
+                print(f"Running {task_name} via CrewAI...")
+                result_text = str(crew.kickoff())
+            except Exception as e:
+                print(f"Crew execution failed for '{task_name}': {e}")
 
-            # If this is a C/C++ project, attempt deterministic fallback generation
-            if hasattr(self, 'project_language') and self.project_language in {"c", "cpp"}:
-                fallback_output = self._run_c_fallback(task_name, task_vars, output_file)
-                if fallback_output is not None:
-                    return fallback_output
+        # 3. Clean and process result if LLM generated output
+        if result_text:
+            cleaned_text = clean_markdown_content(result_text)
 
-            # Fallback placeholder when no local agent is available
-            print(f"Local agent not available or failed — writing placeholder for '{task_name}'")
             if output_file:
-                placeholder = f"# Placeholder output for {task_name}\n\nDescription:\n{description}\n\nNote: Crew/agent execution was skipped because the crew library is unavailable or incompatible, and local agent execution failed."
                 try:
-                    write_file(output_file, placeholder)
+                    write_file(output_file, cleaned_text)
                 except Exception as e:
-                    print(f"Failed writing placeholder output to {output_file}: {e}")
-            return None
+                    print(f"Failed writing cleaned output to {output_file}: {e}")
 
-        # If agent could not be prepared, write placeholder and return
-        if agent is None:
-            print(f"Agent is None for task '{task_name}' — writing placeholder output.")
-            if output_file:
-                placeholder = f"# Placeholder output for {task_name}\n\nDescription:\n{description}\n\nNote: Agent could not be initialized."
-                try:
-                    write_file(output_file, placeholder)
-                except Exception as e:
-                    print(f"Failed writing placeholder output to {output_file}: {e}")
-            return None
+            if task_name in {"code_task", "testing_task", "documentation_task"}:
+                extracted = self._extract_and_write_files(result_text)
+                if extracted or self._project_has_source_files():
+                    return cleaned_text
 
-        # Normal flow: run with Crew
-        try:
-            task = Task(
-                description=description,
-                expected_output=expected or f"Output for {task_name}",
-                agent=agent,
-                output_file=output_file
-            )
-            crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=True)
-            print(f"Running {task_name}...")
-            return crew.kickoff()
-        except TypeError as te:
-            # Backward/forward compatibility issues — fallback to placeholder behavior
-            print(f"Crew execution failed with TypeError: {te}. Falling back to placeholder output for '{task_name}'.")
-            if output_file:
-                placeholder = f"# Fallback output for {task_name}\n\nDescription:\n{description}\n\nNote: Crew execution failed with TypeError: {te}."
-                try:
-                    write_file(output_file, placeholder)
-                except Exception as e:
-                    print(f"Failed writing fallback output to {output_file}: {e}")
-            return None
-        except Exception as e:
-            print(f"Unexpected error while running Crew for '{task_name}': {e}")
-            raise
+            if output_file and os.path.exists(output_file):
+                return cleaned_text
+
+        # 4. Fallback execution if LLM execution produced no usable output
+        print(f"Using deterministic fallback for task '{task_name}'.")
+        if getattr(self, 'project_language', 'python') in {"c", "cpp"}:
+            return self._run_c_fallback(task_name, task_vars, output_file)
+        else:
+            return self._run_python_fallback(task_name, task_vars, output_file)
 
     def _run_requirement_stage(self, prompt: str, existing_srs: str, output_file: str) -> str:
         # Lazy import BaseAgent to avoid import-time crewai dependency
@@ -262,6 +297,377 @@ class SDLCCrewManager:
             tools=[read_project_file, write_project_file]
         )
         return read_file(output_file)
+
+    def _run_python_fallback(self, task_name: str, task_vars: dict, output_file: str = None):
+        prompt = task_vars.get("prompt", getattr(self, "current_prompt", ""))
+        domain = self._infer_python_domain(prompt)
+
+        if task_name == "requirement_task":
+            content = self._generate_python_requirements(prompt, domain)
+            if output_file:
+                write_file(output_file, content)
+            return content
+        if task_name == "design_task":
+            content = self._generate_python_design(prompt, domain)
+            if output_file:
+                write_file(output_file, content)
+            return content
+        if task_name == "code_task":
+            self._generate_python_code(prompt, domain)
+            return "Generated Python source files."
+        if task_name == "testing_task":
+            self._generate_python_tests(domain)
+            return "Generated Python tests."
+        if task_name == "documentation_task":
+            self._generate_python_documentation(domain)
+            return "Generated Python documentation."
+        return None
+
+    def _infer_python_domain(self, prompt: str) -> str:
+        prompt_lower = (prompt or getattr(self, 'current_prompt', '')).lower()
+        if "calculator" in prompt_lower or "calc" in prompt_lower:
+            return "calculator"
+        elif "converter" in prompt_lower or "convert" in prompt_lower:
+            return "converter"
+        elif "csv" in prompt_lower or "parser" in prompt_lower or "export" in prompt_lower or "json" in prompt_lower:
+            return "parser"
+        elif "interest" in prompt_lower or "finance" in prompt_lower:
+            return "interest"
+        elif "queue" in prompt_lower:
+            return "queue"
+        elif "stack" in prompt_lower:
+            return "stack"
+        clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', self.project_name).strip('_').lower()
+        return clean_name or "utility"
+
+    def _generate_python_requirements(self, prompt: str, domain: str) -> str:
+        domain_title = domain.capitalize()
+        return (
+            f"# Software Requirements Specification (SRS)\n\n"
+            f"## Overview\nThe system shall implement a {domain_title} application in Python.\n\n"
+            "## Functional Requirements\n"
+            f"- [NEW] The system shall provide primary operations for {domain_title}.\n"
+            f"- [NEW] The system shall validate user inputs and handle boundary conditions gracefully.\n"
+            "- [NEW] The system shall include automated Pytest test suites covering normal and edge cases.\n\n"
+            "## Non-Functional Requirements\n"
+            "- [NEW] Code shall adhere to PEP 8 standards and maintain high readability.\n"
+            "- [NEW] Documentation shall include a clear README.md and User_Manual.md.\n"
+        )
+
+    def _generate_python_design(self, prompt: str, domain: str) -> str:
+        domain_title = domain.capitalize()
+        return (
+            "# Design Document\n\n"
+            f"## Architecture Overview\nThe project is organized as a modular Python application centered on the `{domain}` module.\n\n"
+            f"## Module Specifications\n"
+            f"- `{domain}.py`: Core domain logic and operations.\n"
+            f"- `main.py`: Application entry point and demonstration CLI.\n"
+            f"- `tests/test_{domain}.py`: Pytest suite for automated testing.\n\n"
+            "## Sequence Flow\n"
+            "```mermaid\nsequenceDiagram\n    participant User\n    participant Main\n"
+            f"    participant {domain_title}Service\n\n"
+            "    User->>Main: execute program\n"
+            f"    Main->>{domain_title}Service: perform operation\n"
+            f"    {domain_title}Service-->>Main: return result\n"
+            "    Main-->>User: display output\n"
+            "```\n"
+        )
+
+    def _generate_python_code(self, prompt: str, domain: str) -> None:
+        if domain == "calculator":
+            code = (
+                "import math\n\n"
+                "def add(a: float, b: float) -> float:\n    return a + b\n\n"
+                "def subtract(a: float, b: float) -> float:\n    return a - b\n\n"
+                "def multiply(a: float, b: float) -> float:\n    return a * b\n\n"
+                "def divide(a: float, b: float) -> float:\n    if b == 0:\n        raise ValueError('Division by zero is not allowed.')\n    return a / b\n\n"
+                "def power(base: float, exp: float) -> float:\n    return math.pow(base, exp)\n\n"
+                "def square_root(val: float) -> float:\n    if val < 0:\n        raise ValueError('Cannot calculate square root of a negative number.')\n    return math.sqrt(val)\n"
+            )
+            main_code = (
+                "from calculator import add, subtract, multiply, divide, power, square_root\n\n"
+                "def main():\n"
+                "    print('Calculator Demo:')\n"
+                "    print('10 + 5 =', add(10, 5))\n"
+                "    print('10 - 5 =', subtract(10, 5))\n"
+                "    print('10 * 5 =', multiply(10, 5))\n"
+                "    print('10 / 5 =', divide(10, 5))\n"
+                "    print('2 ^ 3 =', power(2, 3))\n"
+                "    print('sqrt(16) =', square_root(16))\n\n"
+                "if __name__ == '__main__':\n    main()\n"
+            )
+        elif domain == "converter":
+            code = (
+                "def celsius_to_fahrenheit(c: float) -> float:\n    return (c * 9 / 5) + 32\n\n"
+                "def fahrenheit_to_celsius(f: float) -> float:\n    return (f - 32) * 5 / 9\n\n"
+                "def meters_to_feet(m: float) -> float:\n    return m * 3.28084\n\n"
+                "def feet_to_meters(ft: float) -> float:\n    return ft / 3.28084\n"
+            )
+            main_code = (
+                "from converter import celsius_to_fahrenheit, fahrenheit_to_celsius, meters_to_feet, feet_to_meters\n\n"
+                "def main():\n"
+                "    print('Converter Demo:')\n"
+                "    print('0 C =', celsius_to_fahrenheit(0), 'F')\n"
+                "    print('32 F =', fahrenheit_to_celsius(32), 'C')\n"
+                "    print('1 m =', meters_to_feet(1), 'ft')\n"
+                "    print('3.28084 ft =', feet_to_meters(3.28084), 'm')\n\n"
+                "if __name__ == '__main__':\n    main()\n"
+            )
+        elif domain == "parser":
+            code = (
+                "import csv\nimport json\nimport xml.etree.ElementTree as ET\nfrom typing import List, Dict, Any\n\n"
+                "def parse_csv_string(csv_text: str) -> List[Dict[str, str]]:\n"
+                "    lines = [line.strip() for line in csv_text.strip().splitlines() if line.strip()]\n"
+                "    reader = csv.DictReader(lines)\n"
+                "    return list(reader)\n\n"
+                "def export_to_json(data: List[Dict[str, Any]]) -> str:\n"
+                "    return json.dumps(data, indent=2)\n\n"
+                "def export_to_xml(data: List[Dict[str, Any]], root_tag: str = 'items') -> str:\n"
+                "    root = ET.Element(root_tag)\n"
+                "    for item in data:\n"
+                "        item_elem = ET.SubElement(root, 'item')\n"
+                "        for k, v in item.items():\n"
+                "            child = ET.SubElement(item_elem, str(k))\n"
+                "            child.text = str(v)\n"
+                "    return ET.tostring(root, encoding='utf-8').decode('utf-8')\n"
+            )
+            main_code = (
+                "from parser import parse_csv_string, export_to_json, export_to_xml\n\n"
+                "def main():\n"
+                "    sample_csv = 'name,age\\nAlice,30\\nBob,25\\n'\n"
+                "    data = parse_csv_string(sample_csv)\n"
+                "    print('Parsed Data:', data)\n"
+                "    print('JSON Output:\\n', export_to_json(data))\n"
+                "    print('XML Output:\\n', export_to_xml(data))\n\n"
+                "if __name__ == '__main__':\n    main()\n"
+            )
+        elif domain == "interest":
+            code = (
+                "def calculate_simple_interest(principal: float, rate: float, time: float) -> float:\n"
+                "    if principal < 0 or rate < 0 or time < 0:\n"
+                "        raise ValueError('Inputs must be non-negative.')\n"
+                "    return (principal * rate * time) / 100.0\n\n"
+                "def calculate_total_amount(principal: float, rate: float, time: float) -> float:\n"
+                "    interest = calculate_simple_interest(principal, rate, time)\n"
+                "    return principal + interest\n"
+            )
+            main_code = (
+                "from simple_interest import calculate_simple_interest, calculate_total_amount\n\n"
+                "def main():\n"
+                "    p, r, t = 1000.0, 5.0, 2.0\n"
+                "    interest = calculate_simple_interest(p, r, t)\n"
+                "    total = calculate_total_amount(p, r, t)\n"
+                "    print(f'Principal: {p}, Rate: {r}%, Time: {t} years')\n"
+                "    print(f'Simple Interest: {interest}')\n"
+                "    print(f'Total Amount: {total}')\n\n"
+                "if __name__ == '__main__':\n    main()\n"
+            )
+        elif domain in {"queue", "stack"}:
+            if domain == "queue":
+                code = (
+                    "from typing import Any, List\n\n"
+                    "class Queue:\n"
+                    "    def __init__(self):\n        self._items: List[Any] = []\n\n"
+                    "    def enqueue(self, item: Any) -> None:\n        self._items.append(item)\n\n"
+                    "    def dequeue(self) -> Any:\n"
+                    "        if self.is_empty():\n            raise IndexError('dequeue from empty queue')\n"
+                    "        return self._items.pop(0)\n\n"
+                    "    def peek(self) -> Any:\n"
+                    "        if self.is_empty():\n            raise IndexError('peek from empty queue')\n"
+                    "        return self._items[0]\n\n"
+                    "    def is_empty(self) -> bool:\n        return len(self._items) == 0\n\n"
+                    "    def size(self) -> int:\n        return len(self._items)\n"
+                )
+                main_code = (
+                    "from queue import Queue\n\n"
+                    "def main():\n"
+                    "    q = Queue()\n"
+                    "    q.enqueue(10)\n    q.enqueue(20)\n"
+                    "    print('Front:', q.peek())\n"
+                    "    print('Dequeued:', q.dequeue())\n"
+                    "    print('Size:', q.size())\n\n"
+                    "if __name__ == '__main__':\n    main()\n"
+                )
+            else:
+                code = (
+                    "from typing import Any, List\n\n"
+                    "class Stack:\n"
+                    "    def __init__(self):\n        self._items: List[Any] = []\n\n"
+                    "    def push(self, item: Any) -> None:\n        self._items.append(item)\n\n"
+                    "    def pop(self) -> Any:\n"
+                    "        if self.is_empty():\n            raise IndexError('pop from empty stack')\n"
+                    "        return self._items.pop()\n\n"
+                    "    def peek(self) -> Any:\n"
+                    "        if self.is_empty():\n            raise IndexError('peek from empty stack')\n"
+                    "        return self._items[-1]\n\n"
+                    "    def is_empty(self) -> bool:\n        return len(self._items) == 0\n\n"
+                    "    def size(self) -> int:\n        return len(self._items)\n"
+                )
+                main_code = (
+                    "from stack import Stack\n\n"
+                    "def main():\n"
+                    "    s = Stack()\n"
+                    "    s.push(10)\n    s.push(20)\n"
+                    "    print('Top:', s.peek())\n"
+                    "    print('Popped:', s.pop())\n"
+                    "    print('Size:', s.size())\n\n"
+                    "if __name__ == '__main__':\n    main()\n"
+                )
+        else:
+            module_name = domain
+            code = (
+                f"from typing import Any, Dict\n\n"
+                f"class {domain.capitalize()}:\n"
+                "    def __init__(self, name: str = 'default'):\n"
+                "        self.name = name\n"
+                "        self._data: Dict[str, Any] = {}\n\n"
+                "    def set_value(self, key: str, value: Any) -> None:\n"
+                "        self._data[key] = value\n\n"
+                "    def get_value(self, key: str, default: Any = None) -> Any:\n"
+                "        return self._data.get(key, default)\n\n"
+                "    def has_key(self, key: str) -> bool:\n"
+                "        return key in self._data\n"
+            )
+            main_code = (
+                f"from {module_name} import {domain.capitalize()}\n\n"
+                "def main():\n"
+                f"    obj = {domain.capitalize()}('demo')\n"
+                "    obj.set_value('status', 'active')\n"
+                "    print('Status:', obj.get_value('status'))\n\n"
+                "if __name__ == '__main__':\n    main()\n"
+            )
+
+        write_file(os.path.join(self.project_dir, f"{domain}.py"), code)
+        write_file(os.path.join(self.project_dir, "main.py"), main_code)
+
+    def _generate_python_tests(self, domain: str) -> None:
+        test_dir = os.path.join(self.project_dir, "tests")
+        test_file = os.path.join(test_dir, f"test_{domain}.py")
+
+        if domain == "calculator":
+            test_code = (
+                "import pytest\n"
+                "from calculator import add, subtract, multiply, divide, power, square_root\n\n"
+                "def test_calculator_basic():\n"
+                "    assert add(2, 3) == 5\n"
+                "    assert subtract(10, 4) == 6\n"
+                "    assert multiply(3, 4) == 12\n"
+                "    assert divide(10, 2) == 5.0\n"
+                "    assert power(2, 3) == 8.0\n"
+                "    assert square_root(25) == 5.0\n\n"
+                "def test_calculator_divide_by_zero():\n"
+                "    with pytest.raises(ValueError):\n"
+                "        divide(5, 0)\n\n"
+                "def test_calculator_negative_sqrt():\n"
+                "    with pytest.raises(ValueError):\n"
+                "        square_root(-4)\n"
+            )
+        elif domain == "converter":
+            test_code = (
+                "import pytest\n"
+                "from converter import celsius_to_fahrenheit, fahrenheit_to_celsius, meters_to_feet, feet_to_meters\n\n"
+                "def test_temperature_conversion():\n"
+                "    assert celsius_to_fahrenheit(0) == 32.0\n"
+                "    assert fahrenheit_to_celsius(32) == 0.0\n"
+                "    assert celsius_to_fahrenheit(100) == 212.0\n\n"
+                "def test_length_conversion():\n"
+                "    assert pytest.approx(meters_to_feet(1), 0.001) == 3.28084\n"
+                "    assert pytest.approx(feet_to_meters(3.28084), 0.001) == 1.0\n"
+            )
+        elif domain == "parser":
+            test_code = (
+                "import pytest\n"
+                "from parser import parse_csv_string, export_to_json, export_to_xml\n\n"
+                "def test_parser_csv_json_xml():\n"
+                "    csv_data = 'name,age\\nAlice,30\\n'\n"
+                "    parsed = parse_csv_string(csv_data)\n"
+                "    assert len(parsed) == 1\n"
+                "    assert parsed[0]['name'] == 'Alice'\n"
+                "    json_out = export_to_json(parsed)\n"
+                "    assert 'Alice' in json_out\n"
+                "    xml_out = export_to_xml(parsed)\n"
+                "    assert '<name>Alice</name>' in xml_out\n"
+            )
+        elif domain == "interest":
+            test_code = (
+                "import pytest\n"
+                "from simple_interest import calculate_simple_interest, calculate_total_amount\n\n"
+                "def test_simple_interest():\n"
+                "    assert calculate_simple_interest(1000, 5, 2) == 100.0\n"
+                "    assert calculate_total_amount(1000, 5, 2) == 1100.0\n\n"
+                "def test_invalid_interest_inputs():\n"
+                "    with pytest.raises(ValueError):\n"
+                "        calculate_simple_interest(-100, 5, 2)\n"
+            )
+        elif domain == "queue":
+            test_code = (
+                "import pytest\n"
+                "from queue import Queue\n\n"
+                "def test_queue_operations():\n"
+                "    q = Queue()\n"
+                "    assert q.is_empty()\n"
+                "    q.enqueue(1)\n    q.enqueue(2)\n"
+                "    assert q.peek() == 1\n"
+                "    assert q.dequeue() == 1\n"
+                "    assert q.dequeue() == 2\n"
+                "    assert q.is_empty()\n\n"
+                "def test_queue_empty_errors():\n"
+                "    q = Queue()\n"
+                "    with pytest.raises(IndexError):\n"
+                "        q.dequeue()\n"
+                "    with pytest.raises(IndexError):\n"
+                "        q.peek()\n"
+            )
+        elif domain == "stack":
+            test_code = (
+                "import pytest\n"
+                "from stack import Stack\n\n"
+                "def test_stack_operations():\n"
+                "    s = Stack()\n"
+                "    assert s.is_empty()\n"
+                "    s.push(1)\n    s.push(2)\n"
+                "    assert s.peek() == 2\n"
+                "    assert s.pop() == 2\n"
+                "    assert s.pop() == 1\n"
+                "    assert s.is_empty()\n\n"
+                "def test_stack_empty_errors():\n"
+                "    s = Stack()\n"
+                "    with pytest.raises(IndexError):\n"
+                "        s.pop()\n"
+                "    with pytest.raises(IndexError):\n"
+                "        s.peek()\n"
+            )
+        else:
+            test_code = (
+                "import pytest\n"
+                f"from {domain} import {domain.capitalize()}\n\n"
+                "def test_generic_object():\n"
+                f"    obj = {domain.capitalize()}('test')\n"
+                "    obj.set_value('key1', 'val1')\n"
+                "    assert obj.has_key('key1')\n"
+                "    assert obj.get_value('key1') == 'val1'\n"
+                "    assert obj.get_value('missing', 'default') == 'default'\n"
+            )
+
+        write_file(test_file, test_code)
+
+    def _generate_python_documentation(self, domain: str) -> None:
+        readme = os.path.join(self.project_dir, "README.md")
+        user_manual = os.path.join(self.project_dir, "User_Manual.md")
+        readme_content = (
+            f"# {self.project_name}\n\n"
+            f"A Python implementation of {domain} with automated Pytest unit testing.\n\n"
+            "## Requirements\n- Python 3.8+\n- Pytest\n\n"
+            "## Execution\n```sh\npython main.py\n```\n\n"
+            "## Testing\n```sh\npytest\n```\n"
+        )
+        user_manual_content = (
+            "# User Manual\n\n"
+            f"This document provides instructions for using the {self.project_name} Python application.\n\n"
+            "## Setup and Installation\n1. Ensure Python 3 is installed.\n2. Run `python main.py` to execute main entry point.\n3. Run `pytest` to verify suite correctness.\n"
+        )
+        write_file(readme, readme_content)
+        write_file(user_manual, user_manual_content)
 
     def _run_c_fallback(self, task_name: str, task_vars: dict, output_file: str):
         if task_name == "requirement_task":

@@ -224,13 +224,13 @@ def analyze_c_file(file_path: str, root_dir: str) -> dict:
 def parse_c_compiler_errors(output: str) -> List[dict]:
     """Parse compiler errors from gcc/g++/clang output."""
     errors = []
-    pattern = re.compile(r'^(.*?):(\d+):(\d+):\s+(error|warning|fatal error):\s+(.*)$', re.MULTILINE)
+    pattern = re.compile(r'^(.*?):(\d+):(?:(\d+):)?\s+(error|warning|fatal error):\s+(.*)$', re.MULTILINE)
     for match in pattern.finditer(output):
         file_path, line, col, severity, msg = match.groups()
         errors.append({
             'file': file_path.strip(),
             'line': int(line),
-            'column': int(col),
+            'column': int(col) if col else 0,
             'severity': severity.strip(),
             'message': msg.strip()
         })
