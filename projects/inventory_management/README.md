@@ -1,0 +1,17 @@
+# inventory_management
+
+A Python implementation of inventory_management with automated Pytest unit testing.
+
+## Requirements
+- Python 3.8+
+- Pytest
+
+## Execution
+```sh
+python main.py
+```
+
+## Testing
+```sh
+pytest
+```
