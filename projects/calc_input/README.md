@@ -1,21 +1,17 @@
 # calc_input
 
-A C++ implementation of calc_input with build and test support.
+A Python implementation of calculator with automated Pytest unit testing.
 
-## Build
+## Requirements
+- Python 3.8+
+- Pytest
 
+## Execution
 ```sh
-make
+python main.py
 ```
 
-## Run
-
+## Testing
 ```sh
-./calc_input
-```
-
-## Test
-
-```sh
-make test
+pytest
 ```
