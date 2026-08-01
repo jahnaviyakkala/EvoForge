@@ -3,13 +3,13 @@ import os
 
 # --- Pattern sets ---
 _CPP_PATTERNS = [
-    r'\bc\+\+\b', r'\bcpp\b', r'using\s+c\+\+', r'\bin\s+c\+\+\b', r'c\+\+\s+language',
-    r'c\+\+\s+code', r'write\s+in\s+c\+\+', r'\bg\+\+\b', r'\.cpp\b'
+    r'\bc\+\+', r'\bcpp\b', r'using\s+c\+\+', r'c\+\+\s+language',
+    r'c\+\+\s+code', r'write\s+in\s+c\+\+', r'\bg\+\+', r'\.cpp\b', r'c/c\+\+'
 ]
 
 _C_PATTERNS = [
-    r'\bin\s+c\b', r'\bc\s+program\b', r'\bc\s+language\b', r'\bc\s+code\b',
-    r'using\s+c\b', r'\.c\s+file\b', r'\bgcc\b', r'write\s+in\s+c\b'
+    r'\bin\s+c(?!\+)\b', r'\bc\s+program\b', r'\bc\s+language\b', r'\bc\s+code\b',
+    r'using\s+c(?!\+)\b', r'\.c\s+file\b', r'\bgcc\b', r'write\s+in\s+c(?!\+)\b'
 ]
 
 _PYTHON_PATTERNS = [
@@ -47,6 +47,11 @@ def detect_language(prompt: str) -> str:
 def get_language_label(language: str) -> str:
     """Return a human-readable label for the language code."""
     return {'python': 'Python', 'c': 'C', 'cpp': 'C++'}.get(language, 'Python')
+
+
+def get_language_emoji(language: str) -> str:
+    """Return the emoji icon for the language code."""
+    return {'python': '🐍 Python', 'c': '⚙️ C', 'cpp': '⚡ C++'}.get(language, '🐍 Python')
 
 
 def get_source_extensions(language: str):

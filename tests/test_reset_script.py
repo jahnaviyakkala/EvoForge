@@ -1,34 +1,41 @@
 import os
 import shutil
+import reset
 from reset import reset_workspace
 from database.db_manager import DBManager
 
-def test_reset_workspace_clears_directories_and_db(tmp_path):
-    projects_dir = os.path.join(os.path.dirname(__file__), "..", "projects")
-    reports_dir = os.path.join(os.path.dirname(__file__), "..", "reports")
+def test_reset_workspace_clears_directories_and_db(tmp_path, monkeypatch):
+    tmp_projects = tmp_path / "projects"
+    tmp_reports = tmp_path / "reports"
+    tmp_db = tmp_path / "database" / "project_state.db"
+    
+    monkeypatch.setattr(reset, "PROJECTS_DIR", str(tmp_projects))
+    monkeypatch.setattr(reset, "REPORTS_DIR", str(tmp_reports))
+    monkeypatch.setattr(reset, "DB_PATH", str(tmp_db))
     
     # Create dummy items
-    dummy_proj = os.path.join(projects_dir, "dummy_project")
-    dummy_rep = os.path.join(reports_dir, "dummy_project")
-    os.makedirs(dummy_proj, exist_ok=True)
-    os.makedirs(dummy_rep, exist_ok=True)
+    dummy_proj = tmp_projects / "dummy_project"
+    dummy_rep = tmp_reports / "dummy_project"
+    dummy_proj.mkdir(parents=True, exist_ok=True)
+    dummy_rep.mkdir(parents=True, exist_ok=True)
     
-    with open(os.path.join(dummy_proj, "test.txt"), "w") as f:
+    with open(dummy_proj / "test.txt", "w") as f:
         f.write("test")
-    with open(os.path.join(dummy_rep, "SRS.md"), "w") as f:
+    with open(dummy_rep / "SRS.md", "w") as f:
         f.write("# SRS")
 
     # Run reset
     reset_workspace()
 
-    assert not os.path.exists(dummy_proj)
-    assert not os.path.exists(dummy_rep)
+    assert not dummy_proj.exists()
+    assert not dummy_rep.exists()
     
     # Verify DB connection works after reset
-    db = DBManager()
+    db = DBManager(db_path=str(tmp_db))
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = [row[0] for row in cursor.fetchall()]
         assert "projects" in tables
         assert "file_registry" in tables
+

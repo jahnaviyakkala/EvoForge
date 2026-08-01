@@ -59,19 +59,32 @@ class BaseAgent:
             except Exception:
                 pass
 
-            # Fallback: simple Ollama runner using the local 'ollama' CLI (must be installed)
+            # Fallback: call Ollama REST API directly (avoids broken --prompt CLI flag)
             class OllamaClient:
                 def __init__(self, model_name=None, base_url=None, temperature=0.2):
                     self.model = model_name or os.getenv("OLLAMA_MODEL", "qwen2.5-coder:14b")
-                    self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+                    self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")).rstrip("/")
                     self.temperature = temperature
 
                 def generate(self, prompt: str) -> str:
-                    import subprocess
-                    cmd = ["ollama", "run", self.model, "--quiet", "--prompt", prompt]
+                    import urllib.request
+                    import json as _json
+                    payload = _json.dumps({
+                        "model": self.model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": self.temperature}
+                    }).encode("utf-8")
+                    req = urllib.request.Request(
+                        f"{self.base_url}/api/generate",
+                        data=payload,
+                        headers={"Content-Type": "application/json"},
+                        method="POST"
+                    )
                     try:
-                        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-                        return res.stdout.strip()
+                        with urllib.request.urlopen(req, timeout=1800) as resp:
+                            data = _json.loads(resp.read().decode("utf-8"))
+                            return data.get("response", "").strip()
                     except Exception as e:
                         return f"ERROR_RUNNING_OLLAMA: {e}"
 

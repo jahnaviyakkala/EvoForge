@@ -71,25 +71,41 @@ code_task:
     2. Prefer reusing existing modules, classes, and functions only when they directly satisfy the new requirements in SRS.md.
     3. Only write new files or modify files specified in Design.md.
     4. Preserve architecture, naming conventions, imports, type hints, and coding style.
-    5. If the target project is C or C++, produce clean C11/C++17 source files (`.c`/`.cpp`), header files (`.h`/`.hpp`) with standard include guards (`#ifndef`), and a POSIX Makefile.
+    5. Strictly enforce the target project language ({language}):
+       - For Python projects, produce clean PEP 8 Python files (`.py`) with type hints and modular functions.
+       - For C++ projects, produce clean C++17 source files (`.cpp`), header files (`.hpp`) with include guards/pragma once, enforcing RAII and smart pointers. Include a POSIX Makefile.
+       - For C projects, produce clean C11 source files (`.c`), header files (`.h`) with explicit memory management. Include a POSIX Makefile.
     6. Ensure main entry point applications (e.g. main.cpp, main.c, main.py) provide an interactive CLI menu loop using native user input (`std::cin`, `scanf`, or `input()`) allowing users to enter input values dynamically, rather than hardcoding static values.
     7. Implement boundary validation checks (division by zero, null pointers, out-of-bounds, negative parameters) before executing business logic routines.
-    8. You MUST use standard file blocks (e.g. `--- FILE: relative/path --- \n ```cpp\n<code>\n``` `) or `write_project_file` to save each source file to `{project_dir}`.
+    8. You MUST output each source file using standard file blocks:
+       --- FILE: relative/path ---
+       ```language
+       <code>
+       ```
 
   expected_output: >
-    Complete, functional, syntactically clean, and boundary-checked source files saved in the {project_dir} directory.
+    Complete, functional, syntactically clean, and boundary-checked source files using standard file blocks.
 
 testing_task:
   description: >
-    Review the source code files in {project_dir} and the requirements in SRS.md at {reports_dir}/SRS.md.
+    Review the project source code and requirements in SRS.md at {reports_dir}/SRS.md.
+    
+    ### Project Source Code Files:
+    {existing_source_code}
+    
     Generate or update a self-contained, automated test suite inside the directory: {project_dir}/tests.
-    For Python projects, create/update PyTest files like `test_*.py` using `pytest.raises()` for boundary exceptions.
-    For C/C++ projects, create/update a single `test_runner.c` or `test_runner.cpp` file that includes `<cassert>`/`assert.h` and exercises public APIs with non-interactive `assert()` statements.
+    For Python projects, create/update PyTest files like `tests/test_*.py` importing the project modules shown above and using `pytest.raises()` for boundary exceptions.
+    For C/C++ projects, create/update a single `tests/test_runner.c` or `tests/test_runner.cpp` file that includes header files and exercises public APIs with non-interactive `assert()` statements.
     Ensure tests cover positive functional paths, negative inputs, boundary conditions, and exception handling.
     Ensure test files import or include modules correctly and execute independently.
-    You MUST use the `write_project_file` tool to save the test files to `{project_dir}/tests`. Do NOT just present the test code in your final answer; you MUST write it to the filesystem.
+    
+    You MUST output all test files using standard file blocks:
+    --- FILE: tests/test_filename.py ---
+    ```python
+    # test code here
+    ```
   expected_output: >
-    A complete, language-appropriate, assertion-backed test suite verifying application correctness under normal and boundary conditions.
+    A complete, language-appropriate, assertion-backed test suite verifying application correctness under normal and boundary conditions using standard file blocks.
 
 documentation_task:
   description: >
@@ -98,6 +114,15 @@ documentation_task:
     Create or update:
     1. {project_dir}/README.md: Installation guides, system prerequisites, feature lists, build commands (`make`), execution commands (`python main.py` or `./executable`), and automated test runner commands (`pytest` or `make test`).
     2. {project_dir}/User_Manual.md: Detailed interactive user manual describing step-by-step CLI usage, available menu options, example inputs, expected outputs, and exit procedures.
-    You MUST use the `write_project_file` tool to save README.md and User_Manual.md to `{project_dir}`. Do NOT just present the documentation in your final answer; you MUST write it to the filesystem.
+    
+    You MUST output all documentation files using standard file blocks:
+    --- FILE: README.md ---
+    ```markdown
+    # README content
+    ```
+    --- FILE: User_Manual.md ---
+    ```markdown
+    # User Manual content
+    ```
   expected_output: >
-    Updated, professional, and comprehensive README.md and User_Manual.md files saved under the project directory.
+    Updated, professional, and comprehensive README.md and User_Manual.md files saved under the project directory using standard file blocks.

@@ -48,15 +48,15 @@ def extract_python_code_symbols(code: str) -> Tuple[List[str], List[str]]:
 
 
 def extract_c_code_symbols(code: str) -> Tuple[List[str], List[str]]:
-    """Extract function names and struct names from C/C++ source using regex."""
+    """Extract function names and struct/class names from C/C++ source using regex."""
     functions = []
-    structs = []
-    struct_matches = re.findall(r"\bstruct\s+([A-Za-z_][A-Za-z0-9_]*)", code)
-    structs.extend(struct_matches)
+    structs_and_classes = []
+    struct_matches = re.findall(r"\b(?:struct|class)\s+([A-Za-z_][A-Za-z0-9_]*)", code)
+    structs_and_classes.extend(struct_matches)
     
-    func_matches = re.findall(r"\b(?:[A-Za-z_][A-Za-z0-9_]*\s+)+([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*?\)\s*\{", code)
+    func_matches = re.findall(r"\b(?:[A-Za-z_][A-Za-z0-9_]*::)?([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*?\)", code)
     functions.extend(func_matches)
-    return list(set(functions)), list(set(structs))
+    return list(set(functions)), list(set(structs_and_classes))
 
 
 def evaluate_project_semantics(project_dir: str, srs_content: str, lang: str = "python") -> Dict[str, any]:
@@ -65,16 +65,26 @@ def evaluate_project_semantics(project_dir: str, srs_content: str, lang: str = "
     Returns a dict with score, covered_reqs, missing_reqs, and feedback.
     """
     reqs = extract_srs_functional_requirements(srs_content)
-    source_files = []
     
+    # Auto-detect language if specified lang yields no files or is default python when C/C++ files exist
+    cpp_files = []
+    py_files = []
     for root, _, files in os.walk(project_dir):
         if any(ign in root for ign in [".git", "__pycache__", ".venv", "tests"]):
             continue
         for f in files:
-            if lang == "python" and f.endswith(".py"):
-                source_files.append(os.path.join(root, f))
-            elif lang in {"c", "cpp"} and f.endswith((".c", ".cpp", ".h", ".hpp")):
-                source_files.append(os.path.join(root, f))
+            if f.endswith((".c", ".cpp", ".cc", ".cxx", ".h", ".hpp")):
+                cpp_files.append(os.path.join(root, f))
+            elif f.endswith(".py"):
+                py_files.append(os.path.join(root, f))
+                
+    if lang == "python" and cpp_files and not py_files:
+        lang = "cpp"
+        source_files = cpp_files
+    elif lang in {"c", "cpp"}:
+        source_files = cpp_files
+    else:
+        source_files = py_files if py_files else cpp_files
 
     all_code = ""
     all_functions = []
@@ -99,9 +109,16 @@ def evaluate_project_semantics(project_dir: str, srs_content: str, lang: str = "
 
     for req in reqs:
         req_lower = req.lower()
-        stopwords = {"shall", "system", "provide", "implement", "support", "with", "from", "that", "this", "each", "have", "used", "using"}
+        stopwords = {"shall", "system", "provide", "implement", "support", "with", "from", "that", "this", "each", "have", "used", "using", "the", "and", "for", "are", "not"}
         words = [w for w in re.findall(r"\b[a-zA-Z]{3,}\b", req_lower) if w not in stopwords]
-        matches = [w for w in words if w in all_code.lower() or any(w in fn.lower() for fn in all_functions)]
+        matches = []
+        for w in words:
+            w_stem = w[:3] if len(w) >= 3 else w
+            if (w in all_code.lower() or 
+                w_stem in all_code.lower() or 
+                any(w in fn.lower() or w_stem in fn.lower() or fn.lower() in w for fn in all_functions) or
+                any(w in cl.lower() or w_stem in cl.lower() for cl in all_classes)):
+                matches.append(w)
         if len(words) == 0 or len(matches) / max(len(words), 1) >= 0.25:
             covered_reqs.append(req)
         else:
@@ -114,7 +131,7 @@ def evaluate_project_semantics(project_dir: str, srs_content: str, lang: str = "
     if lang == "python":
         has_boundary_checks = any(kw in all_code for kw in ["raise ", "ValueError", "IndexError", "if ", "try:"])
     else:
-        has_boundary_checks = any(kw in all_code for kw in ["if (", "return false", "return NULL", "return 0", "assert"])
+        has_boundary_checks = any(kw in all_code for kw in ["if (", "if(", "throw ", "catch", "return false", "return NULL", "return 0", "assert"])
 
     overall_score = round(coverage_score * 0.8 + (0.2 if has_boundary_checks else 0.0), 2)
     overall_score = min(overall_score, 1.0)

@@ -129,12 +129,14 @@ def prompt_requirements(mode: str = "new", default_project: str = "") -> Tuple[s
 
 def print_triage_result(project_name: str, mode: str, language: str, reason: Optional[str] = None):
     """Displays project triage and classification summary card."""
+    lang_key = language.lower()
+    lang_display = "⚡ C++" if lang_key == "cpp" else ("⚙️ C" if lang_key == "c" else "🐍 Python")
     if not HAS_RICH:
-        print(f"\n[Triage] Target Project: '{project_name}' | Mode: '{mode}' | Language: '{language}'")
+        print(f"\n[Triage] Target Project: '{project_name}' | Mode: '{mode}' | Language: '{lang_display}'")
         return
 
     mode_badge = "[bold black on green] GREENFIELD (NEW) [/bold black on green]" if mode == "new" else "[bold black on yellow] INCREMENTAL (EVOLVE) [/bold black on yellow]"
-    lang_badge = f"[bold white on blue] {language.upper()} [/bold white on blue]"
+    lang_badge = f"[bold white on blue] {lang_display} [/bold white on blue]"
     
     grid = Table.grid(expand=True, padding=(0, 2))
     grid.add_column(style="bold white", width=18)
@@ -224,15 +226,18 @@ def print_verification_summary(
     table.add_column("Details Summary", style="dim white")
 
     # Compilation Row
-    if language.lower() in {"c", "cpp"}:
+    lang_key = language.lower()
+    if lang_key in {"c", "cpp"}:
+        c_label = "C++" if lang_key == "cpp" else "C"
         c_status = "[bold black on green] PASSED [/bold black on green]" if compile_success else "[bold black on red] FAILED [/bold black on red]"
         c_detail = "Binary / Library compiled cleanly with Makefile" if compile_success else "Compilation errors detected"
-        table.add_row("C/C++ Build (gcc/make)", c_status, c_detail)
+        table.add_row(f"{c_label} Build (gcc/make)", c_status, c_detail)
 
     # Test Execution Row
+    t_label = "C++" if lang_key == "cpp" else ("C" if lang_key == "c" else "PYTHON")
     t_status = "[bold black on green] PASSED [/bold black on green]" if test_success else "[bold black on red] FAILED [/bold black on red]"
     t_detail = "All test assertions passed successfully" if test_success else "Test failures or assertion errors detected"
-    table.add_row(f"{language.upper()} Test Suite", t_status, t_detail)
+    table.add_row(f"{t_label} Test Suite", t_status, t_detail)
 
     # Debugger Pass Row
     if debug_applied:

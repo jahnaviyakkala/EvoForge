@@ -1,13 +1,3 @@
-```
-# Software Requirements Specification (SRS)
+# Software Requirements Specification (SRS) - Inventory Management System
 
-## 1. Introduction
-
-This document provides the software requirements specification for a calculator utility that supports basic arithmetic operations such as addition, subtraction, multiplication, and division.
-
-### 2. Functional Requirements
-- The calculator should support addition.
-- The calculator should support subtraction.
-- The calculator should support multiplication.
-- The calculator should support division.
-```
+See [SRS.md](file:///home/pss/project/SRS.md) for the complete specification of the Inventory Management System.

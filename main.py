@@ -230,16 +230,30 @@ def execute_pipeline(project_name: str, mode: str, prompt: str):
             debug_success, dbg_out = debug_c_project(project_dir)
             test_output = (test_output or compile_output) + "\n\n" + dbg_out
             tests_passed = debug_success
+            if debug_success:
+                compile_success = True
+                test_success = True
         else:
             tests_passed = True
     else:
         test_dir = os.path.join(project_dir, "tests")
         if os.path.exists(test_dir):
             env = os.environ.copy()
-            env["PYTHONPATH"] = project_dir
-            
+            # Set PYTHONPATH to include project_dir and its parent so both package-style
+            # and module-style imports (e.g. from inventory import ... or from project_name.inventory import ...) work.
+            parent_dir = os.path.dirname(os.path.abspath(project_dir))
+            proj_abs = os.path.abspath(project_dir)
+            env["PYTHONPATH"] = f"{proj_abs}:{parent_dir}:{env.get('PYTHONPATH', '')}"
+
             result = subprocess.run(
-                [sys.executable, "-m", "pytest", project_dir],
+                [
+                    sys.executable, "-m", "pytest",
+                    "tests",                          # target tests/ dir relative to project_dir
+                    "--import-mode=importlib",        # avoid __pycache__ module collisions
+                    "-p", "no:cacheprovider",         # skip .pytest_cache creation in project
+                    "-q",
+                ],
+                cwd=os.path.abspath(project_dir),
                 env=env,
                 capture_output=True,
                 text=True
