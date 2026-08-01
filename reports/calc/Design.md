@@ -1,115 +1,71 @@
 # Design Document
 
-## 1. System Architecture Overview
+## System Architecture Overview
 
-The system follows a Clean Architecture, which is structured into decoupled modular layers:
-
-- **Core Domain Logic**: Contains the business logic and rules that are independent of external interfaces.
-- **CLI Entry Point**: Acts as the interface for user interaction via command line.
-- **Tests**: Includes unit tests to validate the functionality of each module.
-
-## 2. Module & Class Specifications
+The system is designed following Clean Architecture and SOLID principles, ensuring a decoupled modular architecture with clear separation between layers.
 
 ### Core Domain Logic
-```cpp
-// CalculationService.h
-class CalculationService {
-public:
-    /**
-     * @brief Performs addition of two numbers.
-     * @param a First number.
-     * @param b Second number.
-     * @return Sum of the two numbers.
-     */
-    double add(double a, double b);
-
-    /**
-     * @brief Performs subtraction of two numbers.
-     * @param a First number.
-     * @param b Second number.
-     * @return Difference between the two numbers.
-     */
-    double subtract(double a, double b);
-};
-
-// CalculationService.cpp
-double CalculationService::add(double a, double b) {
-    return a + b;
-}
-
-double CalculationService::subtract(double a, double b) {
-    return a - b;
-}
-```
+- **Domain Entities**: Encapsulate business rules and logic.
+- **Domain Services**: Provide operations that use domain entities to perform complex tasks.
 
 ### CLI Entry Point
-```cpp
-// CalculatorCLI.h
-class CalculatorCLI {
-public:
-    /**
-     * @brief Runs the calculator application.
-     */
-    void run();
-};
-
-// CalculatorCLI.cpp
-#include "CalculationService.h"
-
-void CalculatorCLI::run() {
-    CalculationService service;
-    double a, b;
-    std::cout << "Enter first number: ";
-    std::cin >> a;
-    std::cout << "Enter second number: ";
-    std::cin >> b;
-
-    double result = service.add(a, b);
-    std::cout << "Result of addition: " << result << std::endl;
-}
-```
+- **Main CLI Class**: Acts as the entry point for user interaction, parsing commands and delegating tasks to domain services.
 
 ### Tests
-```cpp
-// CalculationServiceTest.h
-#include <gtest/gtest.h>
-#include "CalculationService.h"
+- **Unit Tests**: Test individual components in isolation.
+- **Integration Tests**: Test interactions between different modules.
 
-class CalculationServiceTest : public ::testing::Test {
-protected:
-    CalculationService service;
-};
+## Module & Class Specifications
 
-TEST_F(CalculationServiceTest, TestAddition) {
-    EXPECT_EQ(service.add(2.0, 3.0), 5.0);
-}
+### Core Domain Logic
 
-TEST_F(CalculationServiceTest, TestSubtraction) {
-    EXPECT_EQ(service.subtract(5.0, 3.0), 2.0);
-}
-```
+#### Classes
+- **Calculator**
+  - `add(a: int, b: int) -> int`
+    - Adds two integers and returns the result.
+  - `subtract(a: int, b: int) -> int`
+    - Subtracts the second integer from the first and returns the result.
 
-## 3. Visual Sequence Diagrams
+### CLI Entry Point
+
+#### Classes
+- **MainCLI**
+  - `run() -> None`
+    - Parses user input and delegates to appropriate domain service methods.
+  - `_parse_input(input_str: str) -> tuple`
+    - Parses the input string into operation type and operands.
+
+### Tests
+
+#### Classes
+- **TestCalculator**
+  - `test_addition() -> None`
+    - Tests the addition method of Calculator.
+  - `test_subtraction() -> None`
+    - Tests the subtraction method of Calculator.
+
+## Visual Sequence Diagrams
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant CLI as Main CLI
-    participant Domain as Domain Service
+    participant MainCLI
+    participant Calculator
 
-    User->>CLI: Input numbers and operation
-    CLI->>Domain: add(a, b)
-    Domain-->>CLI: Result
-    CLI-->>User: Display result
+    User->>MainCLI: Input command (e.g., "add 5 3")
+    MainCLI->>Calculator: add(5, 3)
+    Calculator-->>MainCLI: Result (8)
+    MainCLI-->>User: Display result (8)
 ```
 
-## 4. Data Models & Boundary Validation Rules
+## Data Models & Boundary Validation Rules
 
 ### Dynamic Memory Handling
-- No dynamic memory allocation is required for this simple calculator application.
-
-### Allocation Limits
-- The application assumes that input numbers will fit within the range of `double` data type.
+- **Memory Allocation**: Use smart pointers or RAII principles to manage memory allocation and deallocation.
+- **Allocation Limits**: Ensure that the system does not allocate more than a predefined limit of memory.
 
 ### Error State Models
-- Basic error handling can be added in future versions to manage invalid inputs or operations.
+- **Error Handling**: Implement error handling mechanisms to manage invalid inputs and operations gracefully.
+  - Return specific error codes or messages for different types of errors (e.g., division by zero, invalid input format).
+
+This design ensures that the system is modular, maintainable, and adheres to SOLID principles.
