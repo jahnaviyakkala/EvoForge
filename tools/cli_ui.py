@@ -431,7 +431,7 @@ def print_system_diagnostics(env_vars: Dict[str, str], db_status: str, has_crew:
     table.add_row("LLM Provider", prov_badge, f"Configured model provider in .env")
 
     if llm_prov == "ollama":
-        model = env_vars.get("OLLAMA_MODEL", "qwen2.5:1.5b")
+        model = env_vars.get("OLLAMA_MODEL", "qwen2.5-coder:14b")
         url = env_vars.get("OLLAMA_BASE_URL", "http://localhost:11434")
         table.add_row("Ollama Model", f"[cyan]{model}[/cyan]", f"Base URL: {url}")
     elif llm_prov == "gemini":

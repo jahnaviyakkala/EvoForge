@@ -47,7 +47,7 @@ def check_env_file():
                 "# OPENAI_API_KEY=your_openai_api_key_here\n"
                 "# OPENAI_MODEL=gpt-4o-mini\n\n"
                 "# Ollama Local Configuration (Offline)\n"
-                "OLLAMA_MODEL=qwen2.5:1.5b\n"
+                "OLLAMA_MODEL=qwen2.5-coder:14b\n"
                 "OLLAMA_BASE_URL=http://localhost:11434\n\n"
                 "# Disable CrewAI telemetry for offline execution\n"
                 "CREWAI_DISABLE_TELEMETRY=true\n"

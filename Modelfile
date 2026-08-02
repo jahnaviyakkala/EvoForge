@@ -1,4 +1,4 @@
-FROM qwen2.5:1.5b
+FROM qwen2.5-coder:14b
 PARAMETER stop "<|im_end|>"
 PARAMETER stop "<|endoftext|>"
 PARAMETER stop "\nObservation"
