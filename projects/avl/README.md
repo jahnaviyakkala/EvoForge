@@ -1,7 +1,37 @@
-# AVL Tree Implementation
+# AVL Tree Project
 
-This is a simple implementation of an AVL tree in C++. The AVL tree is a self-balancing binary search tree where the difference between heights of left and right subtrees cannot be more than one for all nodes. This implementation includes basic operations such as insertion, deletion, and display.
+## Installation Guides
 
-## Compilation
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/your-repo/avl.git
+   cd avl
+   ```
 
-To compile the project, run the following command in the terminal:
+2. **System Prerequisites**
+   - Python 3.x
+   - Make (for building)
+   - pytest (for testing)
+
+3. **Feature Lists**
+   - AVL Tree implementation with basic operations: insert, delete, search.
+   - Balanced tree structure to maintain O(log n) time complexity for operations.
+
+4. **Build Commands**
+   ```bash
+   make
+   ```
+
+5. **Execution Commands**
+   ```bash
+   python main.py
+   # or if there's a compiled executable
+   ./executable
+   ```
+
+6. **Automated Test Runner Commands**
+   ```bash
+   pytest
+   # or if tests are integrated with make
+   make test
+   ```

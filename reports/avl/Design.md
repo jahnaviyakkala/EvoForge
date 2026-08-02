@@ -1,115 +1,200 @@
-# AVL Tree Management System Design
+# AVL Tree Implementation Design
 
 ## 1. System Architecture Overview
 
-The AVL Tree Management System is designed following Clean Architecture and SOLID principles to ensure modularity, maintainability, and scalability. The system is divided into three main layers:
+The AVL tree implementation follows a clean architecture, separating concerns into distinct layers:
+
+- **Core Domain Logic**: Contains the business logic and data structures specific to the AVL tree operations.
+- **CLI Entry Point**: Handles user input and output through the command line interface.
+- **Tests**: Includes unit tests for verifying the correctness of the core domain logic.
 
 ### Core Domain Logic
-- **Purpose**: Contains the business logic of the AVL tree operations.
-- **Modules**:
-  - `AVLTree`: Manages the AVL tree structure and operations like insertion, deletion, balancing, etc.
-  - `Node`: Represents a node in the AVL tree.
+The core domain logic is encapsulated within the `AVLTree` class, which manages the AVL tree structure and provides methods for insertion, deletion, balancing, and searching.
 
 ### CLI Entry Point
-- **Purpose**: Provides a command-line interface for user interaction.
-- **Modules**:
-  - `CLI`: Handles user input and output operations.
-  - `CommandParser`: Parses user commands and maps them to corresponding domain logic operations.
+The CLI entry point is managed by the `CLI` class. It reads user commands from the standard input, processes them using the `AVLTree` class, and outputs the results to the standard output.
 
 ### Tests
-- **Purpose**: Ensures the correctness of the system through unit and integration tests.
-- **Modules**:
-  - `UnitTests`: Contains unit tests for individual components.
-  - `IntegrationTests`: Contains integration tests for the entire system flow.
+Unit tests are implemented in the `TestAVLTree` class. These tests verify the correctness of the AVL tree operations such as insertion, deletion, balancing, and searching.
 
 ## 2. Module & Class Specifications
 
 ### Core Domain Logic
 
-#### AVLTree
+#### AVLTree.h
 ```cpp
+#ifndef AVLTREE_H
+#define AVLTREE_H
+
+#include <memory>
+#include <stdexcept>
+
+struct Node {
+    int key;
+    std::shared_ptr<Node> left;
+    std::shared_ptr<Node> right;
+    int height;
+
+    Node(int k) : key(k), left(nullptr), right(nullptr), height(1) {}
+};
+
 class AVLTree {
 public:
     AVLTree();
     ~AVLTree();
 
-    void insert(int value);
-    bool remove(int value);
-    int getHeight() const;
-    Node* getRoot() const;
+    void insert(int key);
+    bool search(int key);
+    void remove(int key);
 
 private:
-    Node* root;
-    Node* rotateRight(Node* y);
-    Node* rotateLeft(Node* x);
-    int getBalanceFactor(Node* node) const;
-    Node* balance(Node* node);
-    Node* insertRecursive(Node* node, int value);
-    Node* removeRecursive(Node* node, int value);
-    Node* minValueNode(Node* node) const;
+    std::shared_ptr<Node> root;
+
+    int getHeight(const std::shared_ptr<Node>& node) const;
+    int getBalanceFactor(const std::shared_ptr<Node>& node) const;
+    std::shared_ptr<Node> rotateRight(std::shared_ptr<Node>& y);
+    std::shared_ptr<Node> rotateLeft(std::shared_ptr<Node>& x);
+    std::shared_ptr<Node> insertNode(std::shared_ptr<Node>& node, int key);
+    std::shared_ptr<Node> removeNode(std::shared_ptr<Node>& root, int key);
+    std::shared_ptr<Node> minValueNode(const std::shared_ptr<Node>& node) const;
 };
+
+#endif // AVLTREE_H
 ```
 
-#### Node
+#### AVLTree.cpp
 ```cpp
-struct Node {
-    int key;
-    int height;
-    Node* left;
-    Node* right;
+#include "AVLTree.h"
 
-    Node(int k) : key(k), height(1), left(nullptr), right(nullptr) {}
-};
+AVLTree::AVLTree() : root(nullptr) {}
+
+AVLTree::~AVLTree() {}
+
+void AVLTree::insert(int key) {
+    root = insertNode(root, key);
+}
+
+bool AVLTree::search(int key) {
+    // Implementation of search method
+}
+
+void AVLTree::remove(int key) {
+    root = removeNode(root, key);
+}
+
+int AVLTree::getHeight(const std::shared_ptr<Node>& node) const {
+    return (node == nullptr) ? 0 : node->height;
+}
+
+int AVLTree::getBalanceFactor(const std::shared_ptr<Node>& node) const {
+    return (node == nullptr) ? 0 : getHeight(node->left) - getHeight(node->right);
+}
+
+std::shared_ptr<Node> AVLTree::rotateRight(std::shared_ptr<Node>& y) {
+    // Implementation of rotateRight method
+}
+
+std::shared_ptr<Node> AVLTree::rotateLeft(std::shared_ptr<Node>& x) {
+    // Implementation of rotateLeft method
+}
+
+std::shared_ptr<Node> AVLTree::insertNode(std::shared_ptr<Node>& node, int key) {
+    // Implementation of insertNode method
+}
+
+std::shared_ptr<Node> AVLTree::removeNode(std::shared_ptr<Node>& root, int key) {
+    // Implementation of removeNode method
+}
+
+std::shared_ptr<Node> AVLTree::minValueNode(const std::shared_ptr<Node>& node) const {
+    // Implementation of minValueNode method
+}
 ```
 
 ### CLI Entry Point
 
-#### CLI
+#### CLI.h
 ```cpp
+#ifndef CLI_H
+#define CLI_H
+
+#include "AVLTree.h"
+#include <iostream>
+
 class CLI {
 public:
     void run();
 private:
-    CommandParser parser;
-    AVLTree tree;
-    void displayMenu() const;
-    void handleCommand(const std::string& command);
+    AVLTree avlTree;
+    void processCommand(const std::string& command);
 };
+
+#endif // CLI_H
 ```
 
-#### CommandParser
+#### CLI.cpp
 ```cpp
-class CommandParser {
-public:
-    std::string parse(const std::string& input) const;
-private:
-    bool isValidCommand(const std::string& command) const;
-};
+#include "CLI.h"
+
+void CLI::run() {
+    std::string command;
+    while (true) {
+        std::cout << "> ";
+        std::getline(std::cin, command);
+        processCommand(command);
+    }
+}
+
+void CLI::processCommand(const std::string& command) {
+    // Implementation of processCommand method
+}
 ```
 
 ### Tests
 
-#### UnitTests
+#### TestAVLTree.h
 ```cpp
-class UnitTests {
+#ifndef TESTAVLTREE_H
+#define TESTAVLTREE_H
+
+#include "AVLTree.h"
+#include <cassert>
+
+class TestAVLTree {
 public:
-    void runAll();
+    void runTests();
 private:
-    void testAVLTreeInsertion();
-    void testAVLTreeDeletion();
-    // Add more test methods as needed
+    void testInsertion();
+    void testSearch();
+    void testDeletion();
 };
+
+#endif // TESTAVLTREE_H
 ```
 
-#### IntegrationTests
+#### TestAVLTree.cpp
 ```cpp
-class IntegrationTests {
-public:
-    void runAll();
-private:
-    void testCLIIntegration();
-    // Add more test methods as needed
-};
+#include "TestAVLTree.h"
+
+void TestAVLTree::runTests() {
+    testInsertion();
+    testSearch();
+    testDeletion();
+}
+
+void TestAVLTree::testInsertion() {
+    AVLTree tree;
+    tree.insert(10);
+    assert(tree.search(10) == true);
+}
+
+void TestAVLTree::testSearch() {
+    // Implementation of testSearch method
+}
+
+void TestAVLTree::testDeletion() {
+    // Implementation of testDeletion method
+}
 ```
 
 ## 3. Visual Sequence Diagrams
@@ -117,36 +202,33 @@ private:
 ```mermaid
 sequenceDiagram
     participant User
-    participant CLI
-    participant CommandParser
-    participant AVLTree
+    participant CLI as Command Line Interface
+    participant AVLTree as AVL Tree Domain Service
 
-    User->>CLI: Input command
-    CLI->>CommandParser: Parse command
-    alt Valid command
-        CommandParser-->>CLI: Return parsed command
-        CLI->>AVLTree: Execute command
-        AVLTree-->>CLI: Return result
-        CLI-->>User: Display result
-    else Invalid command
-        CommandParser-->>CLI: Return error message
-        CLI-->>User: Display error message
-    end
+    User->>CLI: Insert key=10
+    CLI->>AVLTree: insert(10)
+    AVLTree-->>CLI: Success
+    CLI-->>User: Operation successful
+
+    User->>CLI: Search key=10
+    CLI->>AVLTree: search(10)
+    AVLTree-->>CLI: true
+    CLI-->>User: Key found
+
+    User->>CLI: Remove key=10
+    CLI->>AVLTree: remove(10)
+    AVLTree-->>CLI: Success
+    CLI-->>User: Operation successful
 ```
 
 ## 4. Data Models & Boundary Validation Rules
 
 ### Dynamic Memory Handling
-- **AVLTree**: Manages dynamic memory for nodes, ensuring proper allocation and deallocation.
-- **Node**: Uses `new` to allocate memory for new nodes and `delete` to free them.
+- The `Node` struct uses `std::shared_ptr` for managing dynamic memory, ensuring automatic deallocation of nodes when they are no longer in use.
 
 ### Allocation Limits
-- The system does not enforce specific limits on the number of nodes or tree height. However, practical limits are determined by available system memory.
+- The AVL tree implementation does not impose explicit allocation limits but relies on the system's available memory. However, it is designed to handle a large number of nodes efficiently.
 
 ### Error State Models
-- **AVLTree**:
-  - Throws exceptions for invalid operations (e.g., removing a non-existent node).
-- **CLI**:
-  - Handles exceptions and displays appropriate error messages to the user.
-- **CommandParser**:
-  - Returns error messages for invalid commands.
+- The `AVLTree` class throws exceptions such as `std::runtime_error` when encountering invalid operations or memory allocation failures.
+- The CLI handles these exceptions and outputs appropriate error messages to the user.
