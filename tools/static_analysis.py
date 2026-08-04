@@ -3,7 +3,7 @@ import json
 import os
 import re
 from collections import defaultdict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 # C/C++ analysis is provided by build_tools (lazy import to avoid circular deps)
 _C_EXTENSIONS = {'.c', '.cpp', '.cxx', '.cc', '.h', '.hpp', '.hxx'}
@@ -223,3 +223,113 @@ def dependency_graph_to_json(graph: Dict[str, Any]) -> str:
         "function_call_graph": graph["function_call_graph"],
     }
     return json.dumps(serializable, indent=2)
+
+
+def extract_and_store_c_cpp_functions(
+    project_dir: str,
+    db_manager: Any = None,
+    project_id: Any = None,
+    reports_dir: str = None
+) -> Tuple[List[Dict[str, Any]], str]:
+    """
+    Extract all C/C++ functions from source/header files in project_dir,
+    persist them to SQLite database (c_cpp_functions table) if db_manager is provided,
+    save JSON report to reports_dir (or project_dir), and return (functions_list, formatted_reference).
+    """
+    from tools.build_tools import analyze_c_file
+
+    all_functions = []
+    functions_by_file = defaultdict(list)
+
+    for root, dirs, files in os.walk(project_dir):
+        if any(part in root for part in [".venv", "__pycache__", ".git", ".pytest_cache"]):
+            continue
+        for filename in files:
+            _, ext = os.path.splitext(filename)
+            if ext in _C_EXTENSIONS:
+                file_path = os.path.join(root, filename)
+                rel_path = os.path.relpath(file_path, project_dir)
+                file_analysis = analyze_c_file(file_path, project_dir)
+                fns = file_analysis.get("functions", [])
+                if not fns:
+                    continue
+
+                for fn in fns:
+                    fn_record = {
+                        "file_path": rel_path,
+                        "name": fn["name"],
+                        "return_type": fn.get("return_type", "void"),
+                        "params": fn.get("params", []),
+                        "signature": fn.get("signature", f"{fn.get('return_type', 'void')} {fn['name']}()"),
+                        "is_core": fn.get("is_core", 1)
+                    }
+                    all_functions.append(fn_record)
+                    functions_by_file[rel_path].append(fn_record)
+
+                if db_manager and project_id and hasattr(db_manager, "store_c_cpp_functions"):
+                    try:
+                        db_manager.store_c_cpp_functions(project_id, rel_path, fns)
+                    except Exception:
+                        pass
+
+    target_dir = reports_dir if reports_dir and os.path.exists(reports_dir) else project_dir
+    json_path = os.path.join(target_dir, "c_cpp_functions.json")
+    try:
+        with open(json_path, "w", encoding="utf-8") as fh:
+            json.dump(all_functions, fh, indent=2)
+    except Exception:
+        pass
+
+    formatted_ref = format_c_cpp_functions_reference(all_functions)
+    return all_functions, formatted_ref
+
+
+def format_c_cpp_functions_reference(functions_list: List[Dict[str, Any]]) -> str:
+    """Format extracted C/C++ functions into a markdown context block for LLM prompt reference."""
+    if not functions_list:
+        return "No existing C/C++ core functions found."
+
+    by_file = defaultdict(list)
+    for fn in functions_list:
+        by_file[fn["file_path"]].append(fn)
+
+    lines = ["### Core C/C++ Functions Reference:"]
+    for rel_path, fns in sorted(by_file.items()):
+        lines.append(f"\n#### File: `{rel_path}`")
+        for fn in fns:
+            tag = " [CORE]" if fn.get("is_core", 1) == 1 else " [AUX/TEST]"
+            lines.append(f"  - `{fn['signature']}`{tag}")
+
+    return "\n".join(lines)
+
+
+def get_c_cpp_stdlib_reference(language: str = "both", db_manager: Any = None) -> str:
+    """Retrieve C/C++ Standard Library core functions, algorithms, and data types reference block."""
+    if db_manager is None:
+        try:
+            from database.db_manager import DBManager
+            db_manager = DBManager()
+        except Exception:
+            db_manager = None
+
+    if db_manager and hasattr(db_manager, "get_c_cpp_stdlib"):
+        entries = db_manager.get_c_cpp_stdlib(language=language)
+    else:
+        entries = []
+
+    if not entries:
+        return "No standard library entries found."
+
+    by_cat = defaultdict(list)
+    for e in entries:
+        by_cat[e["category"]].append(e)
+
+    lines = ["### C/C++ Standard Library Core Functions & Data Types Reference:"]
+    for cat, items in sorted(by_cat.items()):
+        lines.append(f"\n#### Category: {cat.upper()}")
+        for item in items:
+            lines.append(f"  - `{item['symbol_name']}` [{item['header']}]: {item['description']} (Signature: `{item['signature']}`)")
+
+    return "\n".join(lines)
+
+

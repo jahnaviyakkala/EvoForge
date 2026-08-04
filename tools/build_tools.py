@@ -225,18 +225,22 @@ def run_c_tests(project_dir: str) -> Tuple[bool, str]:
 
 _INCLUDE_RE  = re.compile(r'#include\s*[<"]([\w./]+)[>"]')
 _FUNC_RE     = re.compile(
-    r'(?:^|\n)\s*(?:(?:static|extern|inline|const|void)\s+)*'
-    r'(\w[\w\s\*]+?)\s+(\w+)\s*\(([^)]*)\)\s*\{',
+    r'(?:^|\n)\s*(?:(?:static|extern|inline|const|constexpr|virtual|explicit|unsigned|signed)\s+)*'
+    r'((?:struct\s+|enum\s+|class\s+|std::[\w:]+|[\w_]+(?:\s*\*|\s*&)?)+)\s+'
+    r'([\w_:]+)\s*\(([^)]*)\)\s*(?:const\s*)?(?:noexcept\s*)?[\{;]',
     re.MULTILINE
 )
 _STRUCT_RE   = re.compile(r'(?:typedef\s+)?struct\s+(\w+)\s*\{', re.MULTILINE)
 _MACRO_RE    = re.compile(r'#define\s+(\w+)', re.MULTILINE)
 
-_SKIP_KEYWORDS = frozenset(['if', 'for', 'while', 'switch', 'else', 'do', 'return'])
+_SKIP_KEYWORDS = frozenset([
+    'if', 'for', 'while', 'switch', 'else', 'do', 'return', 'sizeof',
+    'catch', 'typedef', 'struct', 'enum', 'union', 'class', 'namespace'
+])
 
 
 def analyze_c_file(file_path: str, root_dir: str) -> dict:
-    """Parse a C/C++ source or header file and return a summary dict."""
+    """Parse a C/C++ source or header file and return a summary dict including functions and signatures."""
     try:
         with open(file_path, 'r', encoding='utf-8', errors='replace') as fh:
             code = fh.read()
@@ -244,23 +248,41 @@ def analyze_c_file(file_path: str, root_dir: str) -> dict:
         return {}
 
     includes = _INCLUDE_RE.findall(code)
+    rel_path = os.path.relpath(file_path, root_dir)
+    rel_path_clean = rel_path.replace('\\', '/').lower()
+    path_parts = rel_path_clean.split('/')
+    filename = path_parts[-1]
+    is_in_test_dir = any(part in ('tests', 'test_suite') for part in path_parts[:-1])
+    is_test_runner = filename.startswith(('test_runner', 'test_main', 'unittest'))
+    is_test_file = is_in_test_dir or is_test_runner
 
     functions = []
+    seen = set()
     for m in _FUNC_RE.finditer(code):
         name = m.group(2).strip()
-        if name in _SKIP_KEYWORDS:
+        if name in _SKIP_KEYWORDS or name in seen:
             continue
+        seen.add(name)
+        ret_type = m.group(1).strip()
+        params = [p.strip() for p in m.group(3).split(',') if p.strip()]
+        params_str = ", ".join(params)
+        sig = f"{ret_type} {name}({params_str})"
+        is_core = 0 if (name == 'main' or is_test_file) else 1
+
+
         functions.append({
             'name':        name,
-            'return_type': m.group(1).strip(),
-            'params':      [p.strip() for p in m.group(3).split(',') if p.strip()],
+            'return_type': ret_type,
+            'params':      params,
+            'signature':   sig,
+            'is_core':     is_core
         })
 
     structs = _STRUCT_RE.findall(code)
     macros  = _MACRO_RE.findall(code)
 
     return {
-        'path':      os.path.relpath(file_path, root_dir),
+        'path':      rel_path,
         'language':  'cpp' if file_path.endswith(('.cpp', '.cxx', '.cc', '.hpp')) else 'c',
         'includes':  sorted(set(includes)),
         'functions': functions,
@@ -268,6 +290,7 @@ def analyze_c_file(file_path: str, root_dir: str) -> dict:
         'macros':    macros,
         'source':    code[:1000],
     }
+
 
 
 def parse_c_compiler_errors(output: str) -> List[dict]:

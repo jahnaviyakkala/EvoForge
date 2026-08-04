@@ -66,9 +66,12 @@ code_task:
     ### Mandatory Architecture & API Specs from Design.md:
     {design_content}
     
+    ### Core C/C++ Functions Reference:
+    {core_c_functions}
+    
     Follow these rules strictly:
     1. Base your implementation 100% on the SRS.md and Design.md specifications above. Do NOT copy unrelated code or templates from other projects.
-    2. Prefer reusing existing modules, classes, and functions only when they directly satisfy the new requirements in SRS.md.
+    2. Reference and reuse existing core C/C++ functions listed above when generating C or C++ source and header files. Maintain consistency with existing function signatures, return types, parameter definitions, and header declarations.
     3. Only write new files or modify files specified in Design.md.
     4. Preserve architecture, naming conventions, imports, type hints, and coding style.
     5. Strictly enforce the target project language ({language}):
@@ -82,6 +85,7 @@ code_task:
        ```language
        <code>
        ```
+
 
   expected_output: >
     Complete, functional, syntactically clean, and boundary-checked source files using standard file blocks.

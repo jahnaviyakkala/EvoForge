@@ -1,0 +1,250 @@
+{
+  "modules": {
+    "src/CalculatorService.h": {
+      "imports": [],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "src/MainCLI.c": {
+      "imports": [
+        "CalculatorService.h",
+        "ExpressionParser.h",
+        "stdio.h",
+        "stdlib.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "create_main_cli",
+            "return_type": "MainCLI*",
+            "params": [
+              "CalculatorService* calc",
+              "ExpressionParser* exprParser"
+            ]
+          },
+          {
+            "name": "destroy_main_cli",
+            "return_type": "void",
+            "params": [
+              "MainCLI* cli"
+            ]
+          },
+          {
+            "name": "evaluate_expression",
+            "return_type": "double",
+            "params": [
+              "MainCLI* cli",
+              "const char* expression"
+            ]
+          },
+          {
+            "name": "run",
+            "return_type": "void",
+            "params": [
+              "MainCLI* cli"
+            ]
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "src/CalculatorService.c": {
+      "imports": [
+        "stdio.h",
+        "stdlib.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "add",
+            "return_type": "double",
+            "params": [
+              "double a",
+              "double b"
+            ]
+          },
+          {
+            "name": "subtract",
+            "return_type": "double",
+            "params": [
+              "double a",
+              "double b"
+            ]
+          },
+          {
+            "name": "multiply",
+            "return_type": "double",
+            "params": [
+              "double a",
+              "double b"
+            ]
+          },
+          {
+            "name": "divide",
+            "return_type": "double",
+            "params": [
+              "double a",
+              "double b"
+            ]
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "src/ExpressionParser.h": {
+      "imports": [],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "src/ExpressionParser.c": {
+      "imports": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "parse",
+            "return_type": "char**",
+            "params": [
+              "const char* expression",
+              "int* size"
+            ]
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    },
+    "tests/test_runner.c": {
+      "imports": [
+        "CalculatorService.h",
+        "ExpressionParser.h",
+        "assert.h",
+        "stdio.h",
+        "stdlib.h"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "parse",
+            "return_type": "char**",
+            "params": [
+              "const char* expression",
+              "int* size"
+            ]
+          },
+          {
+            "name": "main",
+            "return_type": "int",
+            "params": []
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "c"
+    }
+  },
+  "module_imports": {
+    "src/CalculatorService.h": [],
+    "src/MainCLI.c": [
+      "CalculatorService.h",
+      "ExpressionParser.h",
+      "stdio.h",
+      "stdlib.h"
+    ],
+    "src/CalculatorService.c": [
+      "stdio.h",
+      "stdlib.h"
+    ],
+    "src/ExpressionParser.h": [],
+    "src/ExpressionParser.c": [
+      "stdio.h",
+      "stdlib.h",
+      "string.h"
+    ],
+    "tests/test_runner.c": [
+      "CalculatorService.h",
+      "ExpressionParser.h",
+      "assert.h",
+      "stdio.h",
+      "stdlib.h"
+    ]
+  },
+  "api_dependencies": [],
+  "db_dependencies": [],
+  "class_dependency_graph": {},
+  "function_call_graph": [
+    {
+      "caller": "src/MainCLI.c",
+      "callee": "create_main_cli"
+    },
+    {
+      "caller": "src/MainCLI.c",
+      "callee": "destroy_main_cli"
+    },
+    {
+      "caller": "src/MainCLI.c",
+      "callee": "evaluate_expression"
+    },
+    {
+      "caller": "src/MainCLI.c",
+      "callee": "run"
+    },
+    {
+      "caller": "src/CalculatorService.c",
+      "callee": "add"
+    },
+    {
+      "caller": "src/CalculatorService.c",
+      "callee": "subtract"
+    },
+    {
+      "caller": "src/CalculatorService.c",
+      "callee": "multiply"
+    },
+    {
+      "caller": "src/CalculatorService.c",
+      "callee": "divide"
+    },
+    {
+      "caller": "src/ExpressionParser.c",
+      "callee": "parse"
+    },
+    {
+      "caller": "tests/test_runner.c",
+      "callee": "parse"
+    },
+    {
+      "caller": "tests/test_runner.c",
+      "callee": "main"
+    }
+  ]
+}

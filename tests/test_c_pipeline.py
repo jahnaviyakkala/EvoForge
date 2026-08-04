@@ -127,3 +127,40 @@ def test_c_impact_tools_mapping():
         assert "queue.c -> tests/test_runner.c" in report
     finally:
         shutil.rmtree(temp_dir)
+
+
+def test_c_function_reference_and_db_indexing():
+    fd, temp_db_path = tempfile.mkstemp()
+    os.close(fd)
+    temp_dir = tempfile.mkdtemp()
+    project_name = "test_c_func_ref"
+    try:
+        from database.db_manager import DBManager
+        db = DBManager(db_path=temp_db_path)
+        manager = SDLCCrewManager(project_name=project_name)
+        manager.project_dir = temp_dir
+        manager.project_language = "c"
+        manager.db = db
+        manager.project_id = db.register_project(project_name, temp_dir)
+        manager.reports_dir = os.path.join(temp_dir, "reports")
+        os.makedirs(manager.reports_dir, exist_ok=True)
+
+        manager._generate_c_code("Create a vector module in C")
+
+        # Verify C/C++ functions were stored in SQLite DB
+        db_fns = db.get_c_cpp_functions(manager.project_id)
+        assert len(db_fns) >= 2
+
+        # Verify c_cpp_functions.json was saved in reports directory
+        json_report_path = os.path.join(manager.reports_dir, "c_cpp_functions.json")
+        assert os.path.exists(json_report_path)
+
+        # Test tool get_c_cpp_functions
+        from tools.project_tools import get_c_cpp_functions
+        ref_text = get_c_cpp_functions(temp_dir)
+        assert "Core C/C++ Functions Reference" in ref_text
+    finally:
+        if os.path.exists(temp_db_path):
+            os.remove(temp_db_path)
+        shutil.rmtree(temp_dir)
+

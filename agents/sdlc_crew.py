@@ -16,7 +16,8 @@ from tools.project_tools import (
     read_project_file,
     write_project_file,
     list_project_files,
-    analyze_python_ast
+    analyze_python_ast,
+    get_c_cpp_functions
 )
 from tools.build_tools import generate_makefile
 from tools.language_tools import detect_language, load_project_language, save_project_language, get_source_extensions, has_explicit_language
@@ -1296,6 +1297,17 @@ class SDLCCrewManager:
         write_file(os.path.join(self.project_dir, source), source_content)
         write_file(os.path.join(self.project_dir, main_src), main_content)
         generate_makefile(self.project_dir, self.project_name, self.project_language)
+        try:
+            from tools.static_analysis import extract_and_store_c_cpp_functions
+            extract_and_store_c_cpp_functions(
+                self.project_dir,
+                db_manager=getattr(self, 'db', None),
+                project_id=getattr(self, 'project_id', None),
+                reports_dir=getattr(self, 'reports_dir', None)
+            )
+        except Exception:
+            pass
+
 
 
     def _generate_c_tests(self, project_dir: str) -> None:
@@ -1450,11 +1462,31 @@ class SDLCCrewManager:
         design_content = read_file(design_file) if os.path.exists(design_file) else ""
         distilled_srs, distilled_design = self._distill_markdown_context(srs_content, design_content)
 
+        # Extract and persist C/C++ functions & Standard Library functions (std::max, min, sort, vector, etc.) to DB & file
+        core_c_functions = "No existing C/C++ core functions found."
+        try:
+            from tools.static_analysis import extract_and_store_c_cpp_functions, get_c_cpp_stdlib_reference
+            _, project_c_functions = extract_and_store_c_cpp_functions(
+                self.project_dir,
+                db_manager=getattr(self, 'db', None),
+                project_id=getattr(self, 'project_id', None),
+                reports_dir=getattr(self, 'reports_dir', None)
+            )
+            stdlib_ref = get_c_cpp_stdlib_reference(
+                language=getattr(self, 'project_language', 'both'),
+                db_manager=getattr(self, 'db', None)
+            )
+            core_c_functions = f"{project_c_functions}\n\n{stdlib_ref}"
+        except Exception:
+            pass
+
+
         code_task_vars = {
             "reports_dir": self.reports_dir,
             "project_dir": self.project_dir,
             "language": self.project_language,
             "existing_source_code": existing_source_code,
+            "core_c_functions": core_c_functions,
             "dependency_graph_path": dependency_path,
             "reuse_report_path": reuse_path,
             "delta_report_path": delta_path,
@@ -1462,13 +1494,28 @@ class SDLCCrewManager:
             "design_content": distilled_design
         }
         # Use the unified _run_single_stage which has a Crew fallback
-        return self._run_single_stage(
+        res = self._run_single_stage(
             code_agent_wrapper,
             "code_task",
             code_task_vars,
             output_file=code_output,
-            tools=[read_project_file, write_project_file, list_project_files, analyze_python_ast]
+            tools=[read_project_file, write_project_file, list_project_files, analyze_python_ast, get_c_cpp_functions]
         )
+
+        # Re-extract and persist functions after code stage to ensure newly generated C/C++ functions are indexed
+        try:
+            from tools.static_analysis import extract_and_store_c_cpp_functions
+            extract_and_store_c_cpp_functions(
+                self.project_dir,
+                db_manager=getattr(self, 'db', None),
+                project_id=getattr(self, 'project_id', None),
+                reports_dir=getattr(self, 'reports_dir', None)
+            )
+        except Exception:
+            pass
+
+        return res
+
 
 
     def _run_testing_stage(self, testing_output_dir: str, test_impact_path: str):

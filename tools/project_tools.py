@@ -114,3 +114,13 @@ def debug_c_project(project_dir: str) -> str:
     success, output = _debug_c_project(project_dir)
     return output if success else f"DEBUG ERROR: {output}"
 
+@tool("get_c_cpp_functions")
+def get_c_cpp_functions(project_dir: str) -> str:
+    """Extract and return core C/C++ function signatures and metadata from a C/C++ project directory."""
+    if not os.path.isabs(project_dir):
+        project_dir = os.path.join(project_base_dir, project_dir)
+    from tools.static_analysis import extract_and_store_c_cpp_functions
+    _, formatted_ref = extract_and_store_c_cpp_functions(project_dir)
+    return formatted_ref
+
+
