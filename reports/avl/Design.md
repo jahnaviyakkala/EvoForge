@@ -1,234 +1,238 @@
-# AVL Tree Implementation Design
+# Design.md
 
 ## 1. System Architecture Overview
 
-The AVL tree implementation follows a clean architecture, separating concerns into distinct layers:
+The AVL implementation follows **Clean Architecture** and adheres to the **SOLID** principles:
 
-- **Core Domain Logic**: Contains the business logic and data structures specific to the AVL tree operations.
-- **CLI Entry Point**: Handles user input and output through the command line interface.
-- **Tests**: Includes unit tests for verifying the correctness of the core domain logic.
+| Layer | Responsibility | Key Components |
+|-------|-----------------|----------------|
+| **Core Domain Logic (Domain)** | Pure business logic – AVL tree operations, node balancing, and data validation. No external dependencies or I/O. | `avl::tree::AVLTree<T>`, `avl::node::Node<T>` |
+| **Application Service** | Orchestrates domain objects for use‑cases exposed by the CLI. Handles input parsing, error mapping, and response formatting. | `app::service::TreeService` |
+| **CLI Entry Point (Interface)** | User interface – command line parsing, invoking services, printing results. No business logic. | `main.rs`, `cli::parser` |
+| **Tests** | Unit tests for domain logic; integration tests for CLI commands. | `tests/` |
 
-### Core Domain Logic
-The core domain logic is encapsulated within the `AVLTree` class, which manages the AVL tree structure and provides methods for insertion, deletion, balancing, and searching.
+*Decoupling*:  
+- The Domain layer has no knowledge of the CLI or external crates.  
+- The Service layer depends only on the Domain and a minimal error‑handling abstraction.  
+- The CLI layer depends on the Service and on third‑party crates (`clap`, `anyhow`).  
 
-### CLI Entry Point
-The CLI entry point is managed by the `CLI` class. It reads user commands from the standard input, processes them using the `AVLTree` class, and outputs the results to the standard output.
+This separation ensures **Single Responsibility**, **Open/Closed**, **Liskov Substitution**, **Interface Segregation**, and **Dependency Inversion**.
 
-### Tests
-Unit tests are implemented in the `TestAVLTree` class. These tests verify the correctness of the AVL tree operations such as insertion, deletion, balancing, and searching.
+---
 
 ## 2. Module & Class Specifications
 
-### Core Domain Logic
+### 2.1 Domain Layer – `avl::node`
 
-#### AVLTree.h
-```cpp
-#ifndef AVLTREE_H
-#define AVLTREE_H
+```rust
+/// A node in an AVL tree.
+///
+/// # Type Parameters
+/// * `T` - The type stored in the node; must implement `Ord + Clone`.
+pub struct Node<T>
+where
+    T: Ord + Clone,
+{
+    /// Value stored in this node.
+    pub key: T,
 
-#include <memory>
-#include <stdexcept>
+    /// Height of the subtree rooted at this node.
+    height: u32,
 
-struct Node {
-    int key;
-    std::shared_ptr<Node> left;
-    std::shared_ptr<Node> right;
-    int height;
+    /// Left child (if any).
+    left: Option<Box<Node<T>>>,
 
-    Node(int k) : key(k), left(nullptr), right(nullptr), height(1) {}
-};
-
-class AVLTree {
-public:
-    AVLTree();
-    ~AVLTree();
-
-    void insert(int key);
-    bool search(int key);
-    void remove(int key);
-
-private:
-    std::shared_ptr<Node> root;
-
-    int getHeight(const std::shared_ptr<Node>& node) const;
-    int getBalanceFactor(const std::shared_ptr<Node>& node) const;
-    std::shared_ptr<Node> rotateRight(std::shared_ptr<Node>& y);
-    std::shared_ptr<Node> rotateLeft(std::shared_ptr<Node>& x);
-    std::shared_ptr<Node> insertNode(std::shared_ptr<Node>& node, int key);
-    std::shared_ptr<Node> removeNode(std::shared_ptr<Node>& root, int key);
-    std::shared_ptr<Node> minValueNode(const std::shared_ptr<Node>& node) const;
-};
-
-#endif // AVLTREE_H
-```
-
-#### AVLTree.cpp
-```cpp
-#include "AVLTree.h"
-
-AVLTree::AVLTree() : root(nullptr) {}
-
-AVLTree::~AVLTree() {}
-
-void AVLTree::insert(int key) {
-    root = insertNode(root, key);
-}
-
-bool AVLTree::search(int key) {
-    // Implementation of search method
-}
-
-void AVLTree::remove(int key) {
-    root = removeNode(root, key);
-}
-
-int AVLTree::getHeight(const std::shared_ptr<Node>& node) const {
-    return (node == nullptr) ? 0 : node->height;
-}
-
-int AVLTree::getBalanceFactor(const std::shared_ptr<Node>& node) const {
-    return (node == nullptr) ? 0 : getHeight(node->left) - getHeight(node->right);
-}
-
-std::shared_ptr<Node> AVLTree::rotateRight(std::shared_ptr<Node>& y) {
-    // Implementation of rotateRight method
-}
-
-std::shared_ptr<Node> AVLTree::rotateLeft(std::shared_ptr<Node>& x) {
-    // Implementation of rotateLeft method
-}
-
-std::shared_ptr<Node> AVLTree::insertNode(std::shared_ptr<Node>& node, int key) {
-    // Implementation of insertNode method
-}
-
-std::shared_ptr<Node> AVLTree::removeNode(std::shared_ptr<Node>& root, int key) {
-    // Implementation of removeNode method
-}
-
-std::shared_ptr<Node> AVLTree::minValueNode(const std::shared_ptr<Node>& node) const {
-    // Implementation of minValueNode method
+    /// Right child (if any).
+    right: Option<Box<Node<T>>>,
 }
 ```
 
-### CLI Entry Point
+#### Methods
 
-#### CLI.h
-```cpp
-#ifndef CLI_H
-#define CLI_H
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `new` | `pub fn new(key: T) -> Self` | Creates a leaf node with height = 1. |
+| `height` | `fn height(node: &Option<Box<Node<T>>>) -> u32` | Static helper to get height of an optional child. |
+| `balance_factor` | `fn balance_factor(&self) -> i32` | Returns `height(left) - height(right)`; used for rebalancing. |
+| `update_height` | `fn update_height(&mut self)` | Recomputes the node’s height from its children. |
 
-#include "AVLTree.h"
-#include <iostream>
+---
 
-class CLI {
-public:
-    void run();
-private:
-    AVLTree avlTree;
-    void processCommand(const std::string& command);
-};
+### 2.2 Domain Layer – `avl::tree`
 
-#endif // CLI_H
-```
-
-#### CLI.cpp
-```cpp
-#include "CLI.h"
-
-void CLI::run() {
-    std::string command;
-    while (true) {
-        std::cout << "> ";
-        std::getline(std::cin, command);
-        processCommand(command);
-    }
-}
-
-void CLI::processCommand(const std::string& command) {
-    // Implementation of processCommand method
+```rust
+/// AVL tree data structure.
+///
+/// # Type Parameters
+/// * `T` - The type stored in the tree; must implement `Ord + Clone`.
+pub struct AVLTree<T>
+where
+    T: Ord + Clone,
+{
+    /// Root of the tree.
+    root: Option<Box<Node<T>>>,
 }
 ```
 
-### Tests
+#### Methods
 
-#### TestAVLTree.h
-```cpp
-#ifndef TESTAVLTREE_H
-#define TESTAVLTREE_H
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `new` | `pub fn new() -> Self` | Creates an empty AVL tree. |
+| `insert` | `pub fn insert(&mut self, key: T) -> Result<(), TreeError>` | Inserts a key; returns error if duplicate or allocation fails. |
+| `delete` | `pub fn delete(&mut self, key: &T) -> Result<(), TreeError>` | Deletes a key; errors if not found. |
+| `search` | `pub fn search(&self, key: &T) -> Option<&T>` | Returns reference to the key if present. |
+| `inorder` | `pub fn inorder(&self) -> Vec<T>` | Returns keys in ascending order. |
+| `preorder` | `pub fn preorder(&self) -> Vec<T>` | Returns keys pre‑order traversal. |
+| `postorder` | `pub fn postorder(&self) -> Vec<T>` | Returns keys post‑order traversal. |
 
-#include "AVLTree.h"
-#include <cassert>
+#### Internal Helpers (private)
 
-class TestAVLTree {
-public:
-    void runTests();
-private:
-    void testInsertion();
-    void testSearch();
-    void testDeletion();
-};
+- `rotate_left`, `rotate_right`: perform single rotations.
+- `rebalance(node: &mut Box<Node<T>>)`: rebalances a subtree after insert/delete.
+- `min_value_node(node: &Box<Node<T>>) -> &T`: helper for deletion.
 
-#endif // TESTAVLTREE_H
-```
+---
 
-#### TestAVLTree.cpp
-```cpp
-#include "TestAVLTree.h"
+### 2.3 Application Service – `app::service`
 
-void TestAVLTree::runTests() {
-    testInsertion();
-    testSearch();
-    testDeletion();
-}
-
-void TestAVLTree::testInsertion() {
-    AVLTree tree;
-    tree.insert(10);
-    assert(tree.search(10) == true);
-}
-
-void TestAVLTree::testSearch() {
-    // Implementation of testSearch method
-}
-
-void TestAVLTree::testDeletion() {
-    // Implementation of testDeletion method
+```rust
+/// Service layer that exposes domain operations to the CLI.
+///
+/// The service is generic over `T` but in practice only used with `i32`.
+pub struct TreeService<T>
+where
+    T: Ord + Clone,
+{
+    tree: AVLTree<T>,
 }
 ```
+
+#### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `new` | `pub fn new() -> Self` | Instantiates a fresh service with an empty tree. |
+| `insert_key` | `pub fn insert_key(&mut self, key: T) -> Result<(), ServiceError>` | Delegates to domain; maps errors to `ServiceError`. |
+| `delete_key` | `pub fn delete_key(&mut self, key: &T) -> Result<(), ServiceError>` | Same as above. |
+| `find_key` | `pub fn find_key(&self, key: &T) -> Option<&T>` | Delegates to domain. |
+| `print_inorder` | `pub fn print_inorder(&self) -> Vec<T>` | Returns inorder traversal. |
+
+---
+
+### 2.4 CLI Layer – `main.rs`
+
+```rust
+use clap::{Parser, Subcommand};
+
+/// Command line interface for the AVL tree application.
+#[derive(Parser)]
+#[clap(name = "avl", version = "1.0")]
+struct Cli {
+    #[clap(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Insert a key into the tree
+    Insert { key: i32 },
+
+    /// Delete a key from the tree
+    Delete { key: i32 },
+
+    /// Search for a key in the tree
+    Find { key: i32 },
+
+    /// Print keys in inorder traversal
+    Inorder,
+}
+```
+
+The `main` function parses arguments, creates a `TreeService<i32>`, executes the chosen command, and prints results or errors.
+
+---
 
 ## 3. Visual Sequence Diagrams
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant CLI as Command Line Interface
-    participant AVLTree as AVL Tree Domain Service
+    participant CLI as MainCLI
+    participant Service as TreeService
+    participant Domain as AVLTree
 
-    User->>CLI: Insert key=10
-    CLI->>AVLTree: insert(10)
-    AVLTree-->>CLI: Success
-    CLI-->>User: Operation successful
+    User->>MainCLI: `avl insert 42`
+    MainCLI->>Service: insert_key(42)
+    Service->>Domain: tree.insert(42)
+    Domain-->>Service: Ok(())
+    Service-->>MainCLI: Success message
+    MainCLI->>User: "Inserted 42"
 
-    User->>CLI: Search key=10
-    CLI->>AVLTree: search(10)
-    AVLTree-->>CLI: true
-    CLI-->>User: Key found
+    User->>MainCLI: `avl find 42`
+    MainCLI->>Service: find_key(&42)
+    Service->>Domain: tree.search(&42)
+    Domain-->>Service: Some(&42)
+    Service-->>MainCLI: Some(42)
+    MainCLI->>User: "Found: 42"
 
-    User->>CLI: Remove key=10
-    CLI->>AVLTree: remove(10)
-    AVLTree-->>CLI: Success
-    CLI-->>User: Operation successful
+    User->>MainCLI: `avl delete 42`
+    MainCLI->>Service: delete_key(&42)
+    Service->>Domain: tree.delete(&42)
+    Domain-->>Service: Ok(())
+    Service-->>MainCLI: Success message
+    MainCLI->>User: "Deleted 42"
 ```
+
+---
 
 ## 4. Data Models & Boundary Validation Rules
 
-### Dynamic Memory Handling
-- The `Node` struct uses `std::shared_ptr` for managing dynamic memory, ensuring automatic deallocation of nodes when they are no longer in use.
+### 4.1 Dynamic Memory Handling
 
-### Allocation Limits
-- The AVL tree implementation does not impose explicit allocation limits but relies on the system's available memory. However, it is designed to handle a large number of nodes efficiently.
+- All nodes are allocated on the heap via `Box<Node<T>>`.  
+- The tree owns its nodes; no shared ownership (`Rc`) is used to avoid reference cycles and simplify deallocation.  
+- Rust’s ownership model guarantees that when `AVLTree` goes out of scope, all child boxes are recursively dropped.
 
-### Error State Models
-- The `AVLTree` class throws exceptions such as `std::runtime_error` when encountering invalid operations or memory allocation failures.
-- The CLI handles these exceptions and outputs appropriate error messages to the user.
+### 4.2 Allocation Limits
+
+- **Maximum Node Count**: A compile‑time constant `MAX_NODES: usize = 1_000_000;`.  
+- The `insert` method checks the current node count (`self.node_count()`) before allocating a new node. If exceeded, it returns `TreeError::AllocationLimitReached`.
+
+### 4.3 Error State Models
+
+| Domain Error | Service Error | CLI Output |
+|--------------|---------------|------------|
+| `TreeError::DuplicateKey` | `ServiceError::DuplicateKey` | `"Error: key already exists"` |
+| `TreeError::NotFound` | `ServiceError::NotFound` | `"Error: key not found"` |
+| `TreeError::AllocationLimitReached` | `ServiceError::AllocationLimitReached` | `"Error: maximum node count reached"` |
+| `TreeError::Internal(msg)` | `ServiceError::Internal(msg)` | `"Error: internal failure: msg"` |
+
+- All errors implement `std::error::Error` and provide human‑readable messages.  
+- The CLI maps these to user‑friendly strings; stack traces are suppressed in production mode.
+
+### 4.4 Validation Rules
+
+1. **Key Range**: For `i32`, no explicit bounds; any integer is accepted.
+2. **Duplicate Prevention**: `insert` checks for existing key via `search`; duplicates are rejected.
+3. **Deletion of Non‑existent Key**: Returns `NotFound`.
+4. **Balancing Invariant**: After every insert/delete, the tree’s balance factor at each node must be in `{ -1, 0, +1 }`. The `rebalance` helper enforces this.
+
+---
+
+## 5. Synchronization with Functional Requirements (SRS.md)
+
+| Requirement | Design Mapping |
+|-------------|----------------|
+| **Insert key** | `AVLTree::insert`, Service `insert_key`, CLI `Insert` command. |
+| **Delete key** | `AVLTree::delete`, Service `delete_key`, CLI `Delete`. |
+| **Search key** | `AVLTree::search`, Service `find_key`, CLI `Find`. |
+| **Inorder traversal** | `AVLTree::inorder`, Service `print_inorder`, CLI `Inorder`. |
+| **Pre/Post‑order traversals** | Implemented but not exposed via CLI (future extension). |
+| **Balancing after operations** | Internal `rebalance` logic. |
+| **Error handling** | Domain errors → Service errors → CLI messages. |
+| **Memory safety** | Rust ownership guarantees; explicit allocation limit. |
+
+All functional requirements are covered by the domain methods, service orchestration, and CLI commands as described above.
+
+---
