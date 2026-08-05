@@ -1,0 +1,219 @@
+{
+  "modules": {
+    "xox.hpp": {
+      "imports": [
+        "string",
+        "vector"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "xox_init",
+            "return_type": "void",
+            "params": [
+              "Xox &m",
+              "const std::string &name"
+            ],
+            "signature": "void xox_init(Xox &m, const std::string &name)",
+            "is_core": 1
+          },
+          {
+            "name": "xox_add_entry",
+            "return_type": "void",
+            "params": [
+              "Xox &m",
+              "double val"
+            ],
+            "signature": "void xox_add_entry(Xox &m, double val)",
+            "is_core": 1
+          },
+          {
+            "name": "xox_count",
+            "return_type": "std::size_t",
+            "params": [
+              "const Xox &m"
+            ],
+            "signature": "std::size_t xox_count(const Xox &m)",
+            "is_core": 1
+          },
+          {
+            "name": "xox_clear",
+            "return_type": "void",
+            "params": [
+              "Xox &m"
+            ],
+            "signature": "void xox_clear(Xox &m)",
+            "is_core": 1
+          }
+        ],
+        "classes": [],
+        "structs": [
+          "Xox"
+        ]
+      },
+      "call_edges": [],
+      "language": "cpp"
+    },
+    "main.cpp": {
+      "imports": [
+        "iostream",
+        "xox.hpp"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "main",
+            "return_type": "int",
+            "params": [],
+            "signature": "int main()",
+            "is_core": 0
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "cpp"
+    },
+    "xox.cpp": {
+      "imports": [
+        "xox.hpp"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "xox_init",
+            "return_type": "void",
+            "params": [
+              "Xox &m",
+              "const std::string &name"
+            ],
+            "signature": "void xox_init(Xox &m, const std::string &name)",
+            "is_core": 1
+          },
+          {
+            "name": "xox_add_entry",
+            "return_type": "void",
+            "params": [
+              "Xox &m",
+              "double val"
+            ],
+            "signature": "void xox_add_entry(Xox &m, double val)",
+            "is_core": 1
+          },
+          {
+            "name": "xox_count",
+            "return_type": "std::size_t",
+            "params": [
+              "const Xox &m"
+            ],
+            "signature": "std::size_t xox_count(const Xox &m)",
+            "is_core": 1
+          },
+          {
+            "name": "xox_clear",
+            "return_type": "void",
+            "params": [
+              "Xox &m"
+            ],
+            "signature": "void xox_clear(Xox &m)",
+            "is_core": 1
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "cpp"
+    },
+    "tests/test_runner.cpp": {
+      "imports": [
+        "cassert",
+        "string",
+        "xox.hpp"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "main",
+            "return_type": "int",
+            "params": [],
+            "signature": "int main()",
+            "is_core": 0
+          }
+        ],
+        "classes": [],
+        "structs": []
+      },
+      "call_edges": [],
+      "language": "cpp"
+    }
+  },
+  "module_imports": {
+    "xox.hpp": [
+      "string",
+      "vector"
+    ],
+    "main.cpp": [
+      "iostream",
+      "xox.hpp"
+    ],
+    "xox.cpp": [
+      "xox.hpp"
+    ],
+    "tests/test_runner.cpp": [
+      "cassert",
+      "string",
+      "xox.hpp"
+    ]
+  },
+  "api_dependencies": [],
+  "db_dependencies": [],
+  "class_dependency_graph": {},
+  "function_call_graph": [
+    {
+      "caller": "xox.hpp",
+      "callee": "xox_init"
+    },
+    {
+      "caller": "xox.hpp",
+      "callee": "xox_add_entry"
+    },
+    {
+      "caller": "xox.hpp",
+      "callee": "xox_count"
+    },
+    {
+      "caller": "xox.hpp",
+      "callee": "xox_clear"
+    },
+    {
+      "caller": "main.cpp",
+      "callee": "main"
+    },
+    {
+      "caller": "xox.cpp",
+      "callee": "xox_init"
+    },
+    {
+      "caller": "xox.cpp",
+      "callee": "xox_add_entry"
+    },
+    {
+      "caller": "xox.cpp",
+      "callee": "xox_count"
+    },
+    {
+      "caller": "xox.cpp",
+      "callee": "xox_clear"
+    },
+    {
+      "caller": "tests/test_runner.cpp",
+      "callee": "main"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+[
+  {
+    "file_path": "xox.hpp",
+    "name": "xox_init",
+    "return_type": "void",
+    "params": [
+      "Xox &m",
+      "const std::string &name"
+    ],
+    "signature": "void xox_init(Xox &m, const std::string &name)",
+    "is_core": 1
+  },
+  {
+    "file_path": "xox.hpp",
+    "name": "xox_add_entry",
+    "return_type": "void",
+    "params": [
+      "Xox &m",
+      "double val"
+    ],
+    "signature": "void xox_add_entry(Xox &m, double val)",
+    "is_core": 1
+  },
+  {
+    "file_path": "xox.hpp",
+    "name": "xox_count",
+    "return_type": "std::size_t",
+    "params": [
+      "const Xox &m"
+    ],
+    "signature": "std::size_t xox_count(const Xox &m)",
+    "is_core": 1
+  },
+  {
+    "file_path": "xox.hpp",
+    "name": "xox_clear",
+    "return_type": "void",
+    "params": [
+      "Xox &m"
+    ],
+    "signature": "void xox_clear(Xox &m)",
+    "is_core": 1
+  },
+  {
+    "file_path": "main.cpp",
+    "name": "main",
+    "return_type": "int",
+    "params": [],
+    "signature": "int main()",
+    "is_core": 0
+  },
+  {
+    "file_path": "xox.cpp",
+    "name": "xox_init",
+    "return_type": "void",
+    "params": [
+      "Xox &m",
+      "const std::string &name"
+    ],
+    "signature": "void xox_init(Xox &m, const std::string &name)",
+    "is_core": 1
+  },
+  {
+    "file_path": "xox.cpp",
+    "name": "xox_add_entry",
+    "return_type": "void",
+    "params": [
+      "Xox &m",
+      "double val"
+    ],
+    "signature": "void xox_add_entry(Xox &m, double val)",
+    "is_core": 1
+  },
+  {
+    "file_path": "xox.cpp",
+    "name": "xox_count",
+    "return_type": "std::size_t",
+    "params": [
+      "const Xox &m"
+    ],
+    "signature": "std::size_t xox_count(const Xox &m)",
+    "is_core": 1
+  },
+  {
+    "file_path": "xox.cpp",
+    "name": "xox_clear",
+    "return_type": "void",
+    "params": [
+      "Xox &m"
+    ],
+    "signature": "void xox_clear(Xox &m)",
+    "is_core": 1
+  }
+]

@@ -1,0 +1,92 @@
+# Test Impact Report
+
+## Changed Source Modules
+
+- accessibility.cpp
+- after.cpp
+- allow.cpp
+- ansi.cpp
+- application.cpp
+- assumption.cpp
+- attempt.cpp
+- command.cpp
+- create.cpp
+- detect.cpp
+- display.cpp
+- enforce.cpp
+- execution.cpp
+- fill.cpp
+- functional.cpp
+- game.cpp
+- ieee.cpp
+- input.cpp
+- memory.cpp
+- monitor.cpp
+- move.cpp
+- nfr1.cpp
+- nfr2.cpp
+- nfr3.cpp
+- nfr4.cpp
+- nfr5.cpp
+- operational.cpp
+- primary.cpp
+- product.cpp
+- provide.cpp
+- purpose.cpp
+- reject.cpp
+- skill.cpp
+- standard.cpp
+- start.cpp
+- term.cpp
+- test.cpp
+- trigger.cpp
+- turn.cpp
+- users.cpp
+- validate.cpp
+- winning.cpp
+
+## Impacted Test Files
+
+- accessibility.cpp -> no direct tests found
+- after.cpp -> no direct tests found
+- allow.cpp -> no direct tests found
+- ansi.cpp -> no direct tests found
+- application.cpp -> no direct tests found
+- assumption.cpp -> no direct tests found
+- attempt.cpp -> no direct tests found
+- command.cpp -> no direct tests found
+- create.cpp -> no direct tests found
+- detect.cpp -> no direct tests found
+- display.cpp -> no direct tests found
+- enforce.cpp -> no direct tests found
+- execution.cpp -> no direct tests found
+- fill.cpp -> no direct tests found
+- functional.cpp -> no direct tests found
+- game.cpp -> no direct tests found
+- ieee.cpp -> no direct tests found
+- input.cpp -> no direct tests found
+- memory.cpp -> no direct tests found
+- monitor.cpp -> no direct tests found
+- move.cpp -> no direct tests found
+- nfr1.cpp -> no direct tests found
+- nfr2.cpp -> no direct tests found
+- nfr3.cpp -> no direct tests found
+- nfr4.cpp -> no direct tests found
+- nfr5.cpp -> no direct tests found
+- operational.cpp -> no direct tests found
+- primary.cpp -> no direct tests found
+- product.cpp -> no direct tests found
+- provide.cpp -> no direct tests found
+- purpose.cpp -> no direct tests found
+- reject.cpp -> no direct tests found
+- skill.cpp -> no direct tests found
+- standard.cpp -> no direct tests found
+- start.cpp -> no direct tests found
+- term.cpp -> no direct tests found
+- test.cpp -> no direct tests found
+- trigger.cpp -> no direct tests found
+- turn.cpp -> no direct tests found
+- users.cpp -> no direct tests found
+- validate.cpp -> no direct tests found
+- winning.cpp -> no direct tests found
+No impacted tests could be automatically mapped from the changed modules.
