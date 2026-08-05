@@ -322,6 +322,9 @@ def prompt_and_run_direct():
             print("Requirements prompt cannot be empty. Exiting.")
         sys.exit(1)
 
+    # After giving input, allow the user to switch between models:
+    ui.prompt_model_selection()
+
     project_name, mode = autonomous_triage(prompt)
     execute_pipeline(project_name, mode, prompt)
 
@@ -338,11 +341,13 @@ def main():
     parser_new = subparsers.add_parser("run-new", help="Initialize and run a new software project")
     parser_new.add_argument("--name", help="Name of the project (optional, determined autonomously if omitted)")
     parser_new.add_argument("--prompt", required=True, help="Functional requirements prompt for the new project")
+    parser_new.add_argument("--model", "-m", help="Select LLM model (1: qwen 2.5 coder 14B, 2: gpt OSS 20B)")
 
     # evolve parser
     parser_evolve = subparsers.add_parser("evolve", help="Evolve an existing software project incrementally")
     parser_evolve.add_argument("--name", help="Name of the project to evolve")
     parser_evolve.add_argument("--prompt", required=True, help="Incremental feature updates prompt")
+    parser_evolve.add_argument("--model", "-m", help="Select LLM model (1: qwen 2.5 coder 14B, 2: gpt OSS 20B)")
 
     # list parser
     subparsers.add_parser("list", help="List all existing projects in portfolio")
@@ -384,6 +389,15 @@ def main():
 
     elif args.command == "run-new":
         ui.print_banner()
+        if args.model:
+            model_display, model_tag = ui.resolve_model_choice(args.model)
+            os.environ["OLLAMA_MODEL"] = model_tag
+            os.environ["LLM_PROVIDER"] = "ollama"
+            if ui.is_rich_available():
+                ui.console.print(f"[bold green]✔ Model set to:[/bold green] [bold magenta]{model_display}[/bold magenta] [dim]({model_tag})[/dim]\n")
+        elif sys.stdin.isatty():
+            ui.prompt_model_selection()
+
         project_name = args.name
         if not project_name:
             project_name, mode = autonomous_triage(args.prompt)
@@ -393,6 +407,15 @@ def main():
 
     elif args.command == "evolve":
         ui.print_banner()
+        if args.model:
+            model_display, model_tag = ui.resolve_model_choice(args.model)
+            os.environ["OLLAMA_MODEL"] = model_tag
+            os.environ["LLM_PROVIDER"] = "ollama"
+            if ui.is_rich_available():
+                ui.console.print(f"[bold green]✔ Model set to:[/bold green] [bold magenta]{model_display}[/bold magenta] [dim]({model_tag})[/dim]\n")
+        elif sys.stdin.isatty():
+            ui.prompt_model_selection()
+
         project_name = args.name
         if not project_name:
             project_name, mode = autonomous_triage(args.prompt)

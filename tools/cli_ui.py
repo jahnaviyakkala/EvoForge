@@ -90,6 +90,101 @@ def print_header(title: str, subtitle: Optional[str] = None):
 
 
 
+AVAILABLE_MODELS = [
+    {
+        "id": "1",
+        "name": "qwen 2.5 coder 14B",
+        "tag": "qwen2.5-coder:14b",
+        "desc": "High-performance coding model optimized for code generation & refactoring"
+    },
+    {
+        "id": "2",
+        "name": "gpt OSS 20B",
+        "tag": "gpt-oss:20b",
+        "desc": "Open-source general intelligence & reasoning model"
+    }
+]
+
+
+def resolve_model_choice(choice: Optional[str]) -> Tuple[str, str]:
+    """
+    Resolves user input string (number, option name, or model tag) to (display_name, model_tag).
+    Defaults to qwen 2.5 coder 14B if empty or unrecognized.
+    """
+    choice_clean = (choice or "").strip().lower()
+    if not choice_clean:
+        return AVAILABLE_MODELS[0]["name"], AVAILABLE_MODELS[0]["tag"]
+
+    if choice_clean in {"1", "qwen", "qwen 2.5 coder 14b", "qwen2.5-coder:14b", "qwen2.5-coder"}:
+        return AVAILABLE_MODELS[0]["name"], AVAILABLE_MODELS[0]["tag"]
+
+    if choice_clean in {"2", "gpt", "gpt oss 20b", "gpt-oss:20b", "gpt-oss-20b", "gpt-oss"}:
+        return AVAILABLE_MODELS[1]["name"], AVAILABLE_MODELS[1]["tag"]
+
+    return choice.strip(), choice.strip()
+
+
+def get_active_model_info() -> Tuple[str, str]:
+    """Returns (display_name, model_tag) for current OLLAMA_MODEL env var."""
+    current_tag = os.getenv("OLLAMA_MODEL", AVAILABLE_MODELS[0]["tag"])
+    return resolve_model_choice(current_tag)
+
+
+def prompt_model_selection(default_model: Optional[str] = None) -> Tuple[str, str]:
+    """
+    Prompts the user to switch or choose between available models after giving input.
+    Returns tuple: (display_name, model_tag).
+    Sets environment variables OLLAMA_MODEL and LLM_PROVIDER.
+    """
+    current_name, current_tag = get_active_model_info()
+    if default_model:
+        current_name, current_tag = resolve_model_choice(default_model)
+
+    if not HAS_RICH:
+        print("\n=== Model Selection ===")
+        print(f"Current Active Model: {current_name} ({current_tag})")
+        for m in AVAILABLE_MODELS:
+            print(f"  [{m['id']}] {m['name']} ({m['tag']}) - {m['desc']}")
+        choice = input(f"Select LLM Model [1-2 or name] (default: 1): ").strip()
+        display_name, tag = resolve_model_choice(choice)
+        os.environ["OLLAMA_MODEL"] = tag
+        os.environ["LLM_PROVIDER"] = "ollama"
+        print(f"✔ Model switched to: {display_name} ({tag})\n")
+        return display_name, tag
+
+    console.print()
+    grid = Table.grid(expand=True, padding=(0, 2))
+    grid.add_column(style="bold white", width=6)
+    grid.add_column(style="bold cyan", width=24)
+    grid.add_column(style="dim bright_white", width=22)
+    grid.add_column(style="dim white")
+
+    for m in AVAILABLE_MODELS:
+        is_current = (m["tag"] == current_tag)
+        badge = " [Active]" if is_current else ""
+        grid.add_row(f"[{m['id']}]", f"{m['name']}{badge}", f"({m['tag']})", m["desc"])
+
+    panel = Panel(
+        grid,
+        title="[bold bright_white]🤖 MODEL SELECTION[/bold bright_white]",
+        subtitle="[dim italic]Switch between available LLM models for pipeline execution[/dim italic]",
+        border_style="magenta",
+        box=box.ROUNDED,
+        padding=(1, 2)
+    )
+    console.print(panel)
+
+    prompt_msg = f"[bold bright_white]Select LLM Model [1/2 or name][/bold bright_white] [dim](default: 1 - {AVAILABLE_MODELS[0]['name']})[/dim]"
+    user_choice = Prompt.ask(prompt_msg, default="1").strip()
+
+    display_name, tag = resolve_model_choice(user_choice)
+    os.environ["OLLAMA_MODEL"] = tag
+    os.environ["LLM_PROVIDER"] = "ollama"
+
+    console.print(f"[bold green]✔ Active Model Switched To:[/bold green] [bold magenta]{display_name}[/bold magenta] [dim]({tag})[/dim]\n")
+    return display_name, tag
+
+
 def prompt_requirements(mode: str = "new", default_project: str = "") -> Tuple[str, str]:
     """
     Prompts the user for requirements and optional project name.
@@ -98,6 +193,7 @@ def prompt_requirements(mode: str = "new", default_project: str = "") -> Tuple[s
     if not HAS_RICH:
         pname = input(f"Project Name [{default_project}]: ").strip() or default_project
         req = input("Describe software requirements: ").strip()
+        prompt_model_selection()
         return pname, req
 
     console.print()
@@ -124,19 +220,23 @@ def prompt_requirements(mode: str = "new", default_project: str = "") -> Tuple[s
         ).strip().lower().replace(" ", "_")
 
     req_prompt = Prompt.ask("[bold bright_white]Enter software requirements prompt[/bold bright_white]").strip()
+    prompt_model_selection()
     return pname, req_prompt
 
 
-def print_triage_result(project_name: str, mode: str, language: str, reason: Optional[str] = None):
+def print_triage_result(project_name: str, mode: str, language: str, reason: Optional[str] = None, model: Optional[str] = None):
     """Displays project triage and classification summary card."""
     lang_key = language.lower()
     lang_display = "⚡ C++" if lang_key == "cpp" else ("⚙️ C" if lang_key == "c" else "🐍 Python")
+    model_name, model_tag = get_active_model_info() if not model else resolve_model_choice(model)
+
     if not HAS_RICH:
-        print(f"\n[Triage] Target Project: '{project_name}' | Mode: '{mode}' | Language: '{lang_display}'")
+        print(f"\n[Triage] Target Project: '{project_name}' | Mode: '{mode}' | Language: '{lang_display}' | Model: '{model_name}'")
         return
 
     mode_badge = "[bold black on green] GREENFIELD (NEW) [/bold black on green]" if mode == "new" else "[bold black on yellow] INCREMENTAL (EVOLVE) [/bold black on yellow]"
     lang_badge = f"[bold white on blue] {lang_display} [/bold white on blue]"
+    model_badge = f"[bold white on magenta] 🤖 {model_name} ({model_tag}) [/bold white on magenta]"
     
     grid = Table.grid(expand=True, padding=(0, 2))
     grid.add_column(style="bold white", width=18)
@@ -145,6 +245,7 @@ def print_triage_result(project_name: str, mode: str, language: str, reason: Opt
     grid.add_row("Project Name:", f"[bold cyan]{project_name}[/bold cyan]")
     grid.add_row("Pipeline Mode:", mode_badge)
     grid.add_row("Target Language:", lang_badge)
+    grid.add_row("Selected LLM Model:", model_badge)
     if reason:
         grid.add_row("Triage Context:", f"[dim]{reason}[/dim]")
 
