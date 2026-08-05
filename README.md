@@ -2,7 +2,7 @@
 
 > **Autonomous, Multi-Agent Software Development Lifecycle (SDLC) Engineering Engine**
 
-EvoForge is an advanced autonomous multi-agent framework designed to execute complete, end-to-end Software Development Lifecycles. Given a natural language user prompt, EvoForge autonomously triages project requirements, synthesizes IEEE 830 / ISO 29148 compliant Software Requirements Specifications (SRS), generates Clean Architecture software designs, engineers production-ready code in multiple programming languages (Python, C, C++), creates automated test suites, validates syntax and runtime semantics via self-correction loops, persists versioned state to an SQLite database, and executes automated Git deployment.
+EvoForge is an advanced autonomous multi-agent framework designed to execute complete, end-to-end Software Development Lifecycles. Given a natural language user prompt, EvoForge autonomously triages project requirements, synthesizes ISO/IEC/IEEE 29148 compliant Software Requirements Specifications (SRS), generates Clean Architecture software designs, engineers production-ready code in multiple programming languages (Python, C, C++), creates automated test suites, validates syntax and runtime semantics via self-correction loops, persists versioned state to an SQLite database, and executes automated Git deployment.
 
 ---
 
@@ -28,7 +28,7 @@ graph TD
     B4 --> C
 
     subgraph STAGE_1 ["Stage 1: Requirements Analysis & SRS Synthesis"]
-        C --> C1["Synthesize IEEE 830 / ISO 29148 SRS.md"]
+        C --> C1["Synthesize ISO/IEC/IEEE 29148 SRS.md"]
         C1 --> C2["Classify Requirements Delta:<br/>[NEW], [MODIFIED], [REMOVED], [UNCHANGED]"]
         C2 --> C3["Persist SRS.md & Requirement_Delta_Report.md"]
         C3 --> C4["Store SRS Version in SQLite DB"]

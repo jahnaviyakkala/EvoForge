@@ -4,14 +4,18 @@ requirement_task:
     Compare these new requirements with the existing SRS:
     "{existing_srs}"
     
-    You MUST merge the new requirements, features, and changes from the user prompt into the existing SRS, producing an elaborate, professional IEEE 830 / ISO 29148 Software Requirements Specification (SRS.md).
+    You MUST merge the new requirements, features, and changes from the user prompt into the existing SRS, producing an elaborate, professional ISO/IEC/IEEE 29148 Software Requirements Specification (SRS.md).
     
-    Structure the SRS.md with the following mandatory sections:
-    1. Document Overview & Project Vision (System purpose, domain goals, high-level scope).
-    2. User Personas & System Scope (Target users, operational environment, dependencies).
-    3. Functional Requirements (Elaborated into sub-categories: Core Operations, Input Validation & Error Handling, Data Processing, Status Monitoring).
-    4. Non-Functional Requirements (Performance & Latency, Reliability & Boundary Handling, Maintainability & Standards, Build & Test Verification).
-    5. Interface & Operational Constraints (CLI/API contracts, data formats, exit codes).
+    Structure the SRS.md strictly according to the ISO/IEC/IEEE 29148:2018 standard layout:
+    1. Introduction & Project Scope (Purpose, System Vision, Product Perspective, User Characteristics, Definitions & Acronyms).
+    2. References & Applicable Standards (ISO/IEC/IEEE 29148, domain standards, external specs).
+    3. Specific Requirements:
+       - 3.1 External Interface Requirements (User Interfaces, API/CLI Interfaces, Data Exchange Formats).
+       - 3.2 System Capabilities & Functional Requirements (Core Operations, Input Validation & Error Handling, Data Processing, Status Monitoring).
+       - 3.3 System Quality Attributes & Non-Functional Requirements (Performance & Latency, Reliability & Safety, Maintainability, Security & Verification).
+       - 3.4 Operational & Design Constraints (Memory bounds, execution limits, exit codes).
+    4. Verification Criteria & Acceptance Tests (Verification method matrix for each requirement).
+    5. Appendices & Supporting Information (Glossary, assumption log).
     
     For every single requirement line under Functional and Non-Functional sections, classify it into one of these categories:
     - [NEW]: Added by the current prompt.
