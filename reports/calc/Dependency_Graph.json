@@ -1,0 +1,179 @@
+{
+  "modules": {
+    "main.py": {
+      "imports": [
+        "calc"
+      ],
+      "api_dependencies": [
+        "sql"
+      ],
+      "definitions": {
+        "functions": [
+          {
+            "name": "main",
+            "args": [],
+            "docstring": ""
+          }
+        ],
+        "classes": []
+      },
+      "call_edges": [
+        {
+          "caller": "main",
+          "callee": "Calc"
+        },
+        {
+          "caller": "main",
+          "callee": "obj.set_value"
+        },
+        {
+          "caller": "main",
+          "callee": "print"
+        },
+        {
+          "caller": "<unknown>",
+          "callee": "main"
+        },
+        {
+          "caller": "main",
+          "callee": "obj.get_value"
+        }
+      ],
+      "language": "python"
+    },
+    "calc.py": {
+      "imports": [
+        "typing"
+      ],
+      "api_dependencies": [
+        "sql"
+      ],
+      "definitions": {
+        "functions": [],
+        "classes": [
+          {
+            "name": "Calc",
+            "bases": [],
+            "methods": [
+              {
+                "name": "__init__",
+                "args": [
+                  "self",
+                  "name"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "set_value",
+                "args": [
+                  "self",
+                  "key",
+                  "value"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "get_value",
+                "args": [
+                  "self",
+                  "key",
+                  "default"
+                ],
+                "docstring": ""
+              },
+              {
+                "name": "has_key",
+                "args": [
+                  "self",
+                  "key"
+                ],
+                "docstring": ""
+              }
+            ],
+            "docstring": "Core domain class. Replace with LLM-generated implementation."
+          }
+        ]
+      },
+      "call_edges": [
+        {
+          "caller": "get_value",
+          "callee": "self._data.get"
+        }
+      ],
+      "language": "python"
+    },
+    "tests/test_calc.py": {
+      "imports": [
+        "calc",
+        "pytest"
+      ],
+      "api_dependencies": [],
+      "definitions": {
+        "functions": [
+          {
+            "name": "test_calc_module_loaded",
+            "args": [],
+            "docstring": ""
+          }
+        ],
+        "classes": []
+      },
+      "call_edges": [
+        {
+          "caller": "test_calc_module_loaded",
+          "callee": "hasattr"
+        }
+      ],
+      "language": "python"
+    }
+  },
+  "module_imports": {
+    "main.py": [
+      "calc"
+    ],
+    "calc.py": [
+      "typing"
+    ],
+    "tests/test_calc.py": [
+      "calc",
+      "pytest"
+    ]
+  },
+  "api_dependencies": [],
+  "db_dependencies": [
+    "sql"
+  ],
+  "class_dependency_graph": {
+    "Calc": []
+  },
+  "function_call_graph": [
+    {
+      "caller": "main",
+      "callee": "Calc"
+    },
+    {
+      "caller": "main",
+      "callee": "obj.set_value"
+    },
+    {
+      "caller": "main",
+      "callee": "print"
+    },
+    {
+      "caller": "<unknown>",
+      "callee": "main"
+    },
+    {
+      "caller": "main",
+      "callee": "obj.get_value"
+    },
+    {
+      "caller": "get_value",
+      "callee": "self._data.get"
+    },
+    {
+      "caller": "test_calc_module_loaded",
+      "callee": "hasattr"
+    }
+  ]
+}
