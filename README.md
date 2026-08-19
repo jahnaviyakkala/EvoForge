@@ -231,92 +231,132 @@ EvoForge/
 ## 🚀 Quick Start Guide
 
 ### 1. Prerequisites
-- Python 3.8+
-- Git & [Git LFS](https://git-lfs.github.com) *(Required if restoring `evoforge_env.tar.gz` via Git)*
-- *(Optional for C/C++)* GCC / G++ and `make`
-- *(LLM Provider)* [Ollama](https://ollama.com)
+- **Python 3.8+** (Python 3.12 recommended)
+- **Git** & **[Git LFS](https://git-lfs.github.com)** *(Required to download binary payload `evoforge_env.tar.gz`)*
+- **GCC / G++ & Make** *(Optional, required for building C/C++ projects)*
+- **[Ollama](https://ollama.com)** *(Local LLM Provider running coding model e.g. `qwen2.5-coder:14b` or `llama3`)*
 
-### 2. Environment Setup
-Clone the repository and set up your `.env` file:
+---
+
+### 2. Download & Clone Repository
+Clone the repository using Git and navigate into the project directory:
+
 ```bash
-git clone <repository-url>
+# Clone the repository (branch: new)
+git clone -b new https://github.com/jahnaviyakkala/EvoForge.git
 cd EvoForge
-cp .env.example .env
-```
 
-Configure your `LLM_PROVIDER` in `.env`:
-```env
-# For Execution via Ollama
-LLM_PROVIDER=ollama
-OLLAMA_MODEL=qwen2.5-coder:14b
-OLLAMA_BASE_URL=http://localhost:11434
+# Download Git LFS binary payload (fetches complete evoforge_env.tar.gz)
+git lfs pull
 ```
-
-### 📦 Conda Environment Setup & Packed Env Restore
 
 > [!IMPORTANT]
 > **Git LFS Note**: `evoforge_env.tar.gz` is stored using **Git LFS**. 
-> - If you cloned the repository via Git, run `git lfs pull` to download the complete ~376MB archive (otherwise you will only have a 130-byte pointer file).
-> - **GitHub Web "Download ZIP" Caveat**: Downloading the repository as a ZIP archive from the GitHub UI does **NOT** fetch Git LFS binary files automatically. If you downloaded a ZIP from GitHub, clone with Git instead or download the LFS binary directly.
+> - Always run `git lfs pull` after cloning so the full ~376MB environment archive is downloaded (otherwise only a 130-byte pointer file will exist).
+> - **GitHub "Download ZIP" Caveat**: Downloading as a ZIP archive from the GitHub UI does **NOT** fetch Git LFS binaries automatically. Always use `git clone` and `git lfs pull`.
 
-#### Option A: Unpacking Pre-packed Conda Archive (`evoforge_env.tar.gz`)
-*(For Linux / WSL environments)*
+---
+
+### 3. Environment & Model Setup
+
+#### Step 3.1: Configure Environment Variables
+Create your local `.env` configuration file from `.env.example`:
 
 ```bash
-# 0. Ensure Git LFS payload is fetched
-git lfs pull
+cp .env.example .env
+```
 
-# 1. Create a directory for the unpacked environment
+Ensure `.env` is configured for your local Ollama setup:
+```env
+# LLM Provider Selection
+LLM_PROVIDER=ollama
+OLLAMA_MODEL=qwen2.5-coder:14b
+OLLAMA_BASE_URL=http://localhost:11434
+
+# Offline Telemetry Settings
+CREWAI_DISABLE_TELEMETRY=true
+OTEL_SDK_DISABLED=true
+CREWAI_TRACING_ENABLED=false
+```
+
+#### Step 3.2: Start Ollama & Pull Model
+Ensure the Ollama model server is active and has pulled the requested coding model:
+
+```bash
+# Start Ollama service (if not running in background)
+ollama serve
+
+# Pull target LLM model
+ollama pull qwen2.5-coder:14b
+```
+
+#### Step 3.3: Activate Python Environment (Choose One Option)
+
+##### 📦 Option A: Unpack Pre-packed Conda Archive (`evoforge_env.tar.gz`) *(Recommended for Linux / WSL)*
+```bash
+# 1. Create target directory
 mkdir -p evoforge_env
 
-# 2. Extract the environment archive (.tar.gz)
+# 2. Extract environment archive
 tar -xzf evoforge_env.tar.gz -C evoforge_env
-
-# (If using a .zip file instead of .tar.gz):
-# unzip evoforge_env.zip -d evoforge_env
 
 # 3. Activate the environment
 source evoforge_env/bin/activate
 
-# 4. Re-bind binary paths for the target location (run once upon unpacking)
+# 4. Re-bind binary paths for the local system (run once upon unpacking)
 conda-unpack
 ```
 
-#### Option B: Creating Environment from `environment.yml`
-*(For Windows Native PowerShell / CMD or fresh installations)*
-
+##### 🐍 Option B: Create Environment from `environment.yml` *(Conda / Mamba)*
 ```bash
-# Create environment from environment.yml specification
 conda env create -f environment.yml -n evoforge_env
 conda activate evoforge_env
 ```
 
-### 3. Execution Commands
+##### ⚡ Option C: Standard Virtual Environment (`pip`)
+```bash
+python -m venv .venv
+
+# Activate environment:
+# On Linux / macOS:
+source .venv/bin/activate
+# On Windows PowerShell:
+# .venv\Scripts\Activate.ps1
+
+pip install -r requirements.txt
+```
+
+---
+
+### 4. Running EvoForge
 
 #### 🔹 Run Greenfield Project (New)
+Autonomously triages requirements and engineers a brand-new project:
 ```bash
 python main.py run-new --prompt "Create a Python utility that parses CSV files and exports to JSON and XML."
 ```
 
 #### 🔹 Evolve Existing Project
+Increments requirements on an existing project registered in the portfolio database:
 ```bash
 python main.py evolve --name "csv_parser" --prompt "Add support for YAML export format."
 ```
 
-#### 🔹 Interactive Mode (Direct Prompt Entry)
+#### 🔹 Interactive Mode
+Prompts interactively for natural language project requirements:
 ```bash
 python main.py
 ```
 
-#### 🔹 Inspect Portfolio & Diagnostics
+#### 🔹 Portfolio Management & Diagnostics
 ```bash
-# List all generated projects in database
+# List all registered projects in SQLite database
 python main.py list
 
-# Inspect project artifacts and SRS specs
+# Inspect project artifacts, specs, and file registry
 python main.py inspect --name "csv_parser"
 
-# Check LLM configuration and database connection
+# Display system configuration and LLM status
 python main.py config
 ```
 
@@ -324,7 +364,7 @@ python main.py config
 
 ## 🧪 Testing & Verification
 
-Run the EvoForge core test suite:
+Run the full EvoForge unit test suite:
 ```bash
 pytest
 ```
